@@ -1,3 +1,7 @@
+// Notes for morning:
+// Loop for port handle (think about adding port into appstate)
+
+
 use std::{collections::HashMap, ptr::read, sync::Mutex, time::Duration};
 use tokio_util::{bytes::buf, sync::CancellationToken};
 use tauri::{AppHandle, Manager, State};
@@ -34,6 +38,8 @@ enum EspAction {
     PressBlueButton = 0x09,
     PressGreenButton = 0x0A,
     Nan = 0xFF,
+    Error = 0x00,
+    Success = 0x0B,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -54,7 +60,7 @@ enum EventAction {
     FnafJumpscare,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum CableColor {
     Red,
     Blue,
@@ -65,17 +71,20 @@ enum CableColor {
     Yellow,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum ButtonColor {
     Red,
     Blue,
     Green,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum BombAction {
     CutCable(CableColor),
     PressButton(ButtonColor),
+    Success,
+    Error,
+    Nan,
 }
 
 enum RandType {
@@ -275,7 +284,14 @@ async fn handle_port(Bomb: Bomb, cancellationtoken : CancellationToken, handle :
                 return EspAction::Nan;
             });
             tokio::spawn( async move {
-                handle_bomb_action(&mut worker_bomb, parse_esp_action(esp_action), worker_handle).await;
+                let action_handler = handle_bomb_action(&mut worker_bomb, parse_esp_action(esp_action), worker_handle).await;
+                if action_handler {
+                    println!("Action handled successfully.");
+                    conn_port.write_all(&[0x0B]).expect("Failed to write to port");
+                } else {
+                    println!("Wrong action attempted. Total wrong actions: {}", worker_bomb.WrongActions);
+                    conn_port.write_all(&[0xFF]).expect("Failed to write to port");
+                }
             });
 
             Ok(())
@@ -289,14 +305,18 @@ async fn handle_port(Bomb: Bomb, cancellationtoken : CancellationToken, handle :
 
 }
 
-async fn handle_bomb_action(bomb: &mut Bomb, action: BombAction, handle: AppHandle) {
-    match action{
-        
+async fn handle_bomb_action(bomb: &mut Bomb, action: BombAction, handle: AppHandle) -> bool{
+    if bomb.Action.contains(&action) {
+        bomb.Action.retain(|a| a != &action);
+        true
+    } else {
+        bomb.WrongActions += 1;
+        false
     }
 }
 
 async fn handle_event(event: Event, handle: AppHandle) {
-    // Handle the event logic here
+    
 }
 
 #[tauri::command]
@@ -338,8 +358,16 @@ fn parse_esp_action(action: EspAction) -> BombAction {
         EspAction::PressGreenButton => BombAction::PressButton(ButtonColor::Green),
         EspAction::Nan => {
             eprintln!("Received Nan action from ESP");
-            BombAction::PressButton(ButtonColor::Red) // Default action for Nan
-        }
+            BombAction::Nan
+        },
+        EspAction::Error => {
+            eprintln!("Received Error action from ESP");
+            BombAction::Error
+        },
+        EspAction::Success => {
+            eprintln!("Received Success action from ESP");
+            BombAction::Success
+        },
     }
 }
 
