@@ -1,9 +1,11 @@
-use std::{collections::HashMap, sync::Mutex};
-use tokio_util::sync::CancellationToken;
+use std::{collections::HashMap, ptr::read, sync::Mutex, time::Duration};
+use tokio_util::{bytes::buf, sync::CancellationToken};
 use tauri::{AppHandle, Manager, State};
 use rand::{
     Rng, RngExt, distr::{Distribution, StandardUniform},
 };
+use serialport::*;
+use std::io::{Write, Read};
 
 #[derive(Debug, Clone, Default)]
 struct AppState {
@@ -17,6 +19,21 @@ enum BombType {
     Alpha,
     Beta,
     Omega,
+}
+
+#[derive(   Clone, Debug)]
+enum EspAction {
+    CutRedCable = 0x01,
+    CutBlueCable = 0x02,
+    CutGreenCable = 0x03,
+    CutWhiteCable = 0x04,
+    CutBlackCable = 0x05,
+    CutOrangeCable = 0x06,
+    CutYellowCable = 0x07,
+    PressRedButton = 0x08,
+    PressBlueButton = 0x09,
+    PressGreenButton = 0x0A,
+    Nan = 0xFF,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -186,7 +203,7 @@ enum RandResult {
     Event(Event),
 }
 
-async fn random(random_type: RandType) -> Result<RandResult, String> {
+async fn random(random_type: RandType) -> RandResult {
     let mut rng = rand::rng();
 
     let result = match random_type {
@@ -197,7 +214,7 @@ async fn random(random_type: RandType) -> Result<RandResult, String> {
         RandType::BombAction => RandResult::BombAction(rng.random()),
     };
 
-    Ok(result)
+    result
 }
 
 impl Bomb {
@@ -227,7 +244,7 @@ impl Bomb {
         let bomb_clone = self.clone();
 
         tokio::spawn(async move {
-            handle_main(bomb_clone, worker_token, worker_handle).await;
+            handle_port(bomb_clone, worker_token, worker_handle).await;
         });
 
         let state = handle.state::<Mutex<AppState>>();
@@ -239,8 +256,43 @@ impl Bomb {
 
 }
 
-async fn handle_main(Bomb: Bomb, cancellationtoken : CancellationToken, handle : AppHandle) {
-    // Handle the main bomb logic here
+async fn handle_port(Bomb: Bomb, cancellationtoken : CancellationToken, handle : AppHandle) -> std::result::Result<(), String> {
+    let mut conn_port = serialport::new("/dev/ttyUSB0", 115200)
+    .timeout(Duration::from_millis(50))
+    .open()
+    .expect("Failed to open port");
+
+    let mut buffer: Vec<u8> = vec![0; 64];
+
+    let worker_token = cancellationtoken.clone();
+    let mut worker_handle = handle.clone();
+    let mut worker_bomb = Bomb.clone();
+
+    match conn_port.read(buffer.as_mut_slice()) {
+        Ok(bytes_read) if bytes_read > 0 => {
+            let esp_action = parse_esp_byte(buffer[0]).unwrap_or_else(|e| {
+                eprintln!("Error parsing ESP action: {}", e);
+                return EspAction::Nan;
+            });
+            tokio::spawn( async move {
+                handle_bomb_action(&mut worker_bomb, parse_esp_action(esp_action), worker_handle).await;
+            });
+
+            Ok(())
+        }
+        Ok(_) => Err("Veri gelmedi (0 byte)".into()),
+        Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {
+            Ok(())
+        }
+        Err(e) => Err(format!("Port read error: {}", e)),
+    }
+
+}
+
+async fn handle_bomb_action(bomb: &mut Bomb, action: BombAction, handle: AppHandle) {
+    match action{
+        
+    }
 }
 
 async fn handle_event(event: Event, handle: AppHandle) {
@@ -248,12 +300,47 @@ async fn handle_event(event: Event, handle: AppHandle) {
 }
 
 #[tauri::command]
-async fn start_game() -> Result<(), String> {
+async fn start_game() -> std::result::Result<(), String> {
     
 
 
 
     Ok(())
+}
+
+fn parse_esp_byte(byte: u8) -> std::result::Result<EspAction, String> {
+    match byte {
+        0x01 => Ok(EspAction::CutRedCable),
+        0x02 => Ok(EspAction::CutBlueCable),
+        0x03 => Ok(EspAction::CutGreenCable),
+        0x04 => Ok(EspAction::CutWhiteCable),
+        0x05 => Ok(EspAction::CutBlackCable),
+        0x06 => Ok(EspAction::CutOrangeCable),
+        0x07 => Ok(EspAction::CutYellowCable),
+        0x08 => Ok(EspAction::PressRedButton),
+        0x09 => Ok(EspAction::PressBlueButton),
+        0x0A => Ok(EspAction::PressGreenButton),
+        _ => Err(format!("Unknown ESP action byte: {}", byte)),
+    }
+}
+
+fn parse_esp_action(action: EspAction) -> BombAction {
+    match action {
+        EspAction::CutRedCable => BombAction::CutCable(CableColor::Red),
+        EspAction::CutBlueCable => BombAction::CutCable(CableColor::Blue),
+        EspAction::CutGreenCable => BombAction::CutCable(CableColor::Green),
+        EspAction::CutWhiteCable => BombAction::CutCable(CableColor::White),
+        EspAction::CutBlackCable => BombAction::CutCable(CableColor::Black),
+        EspAction::CutOrangeCable => BombAction::CutCable(CableColor::Orange),
+        EspAction::CutYellowCable => BombAction::CutCable(CableColor::Yellow),
+        EspAction::PressRedButton => BombAction::PressButton(ButtonColor::Red),
+        EspAction::PressBlueButton => BombAction::PressButton(ButtonColor::Blue),
+        EspAction::PressGreenButton => BombAction::PressButton(ButtonColor::Green),
+        EspAction::Nan => {
+            eprintln!("Received Nan action from ESP");
+            BombAction::PressButton(ButtonColor::Red) // Default action for Nan
+        }
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
