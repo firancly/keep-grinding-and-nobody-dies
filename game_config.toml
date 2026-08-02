@@ -1,0 +1,89 @@
+# ============================================================
+# Keep Grinding and Nobody Dies - Oyun Ayarlari
+# ============================================================
+# Bu dosyayi diledigin gibi degistirebilirsin. Rust tarafinda hicbir
+# sabit deger kalmadi - hepsi buradan okunuyor.
+#
+# ONEMLI: Degisiklik yaptiktan sonra kaydet ve uygulamayi (pnpm tauri dev)
+# YENIDEN BASLAT. Uygulama calisirken bu dosyayi otomatik yeniden okumaz,
+# sadece baslangicta bir kere okur.
+#
+# Bir satiri bozarsan (yanlis TOML formati) uygulama cokmez, sadece o
+# ayarlarin hepsini yok sayip varsayilan degerlere doner ve terminale
+# bir uyari yazar.
+
+
+[game]
+# Bombanin toplam geri sayim suresi (milisaniye). 240000 = 4 dakika.
+# Oyunu kolaylastirmak icin buyut, zorlastirmak icin kucult.
+total_time_ms = 240000
+
+# Ilk yanlis yapildiginda geri sayim suresinden dusulen ceza (milisaniye).
+# 20000 = 20 saniye. Ikinci yanlis her zaman oyunu direkt bitirir (bomba patlar).
+first_mistake_penalty_ms = 20000
+
+# "The Button" (Dugme) modulunde, dugmeye basip birakma arasindaki sure
+# bu degerin ALTINDAYSA "tap" (hizli basip birakma), ustundeyse "hold"
+# (basili tutma) sayilir. Milisaniye cinsinden.
+hold_threshold_ms = 600
+
+# Simon Says modulunun kac asamaya kadar buyuyecegi (sira ne kadar uzayacak).
+# Varsayilan 5. Daha yuksek bir sayi verirsen (orn. 8) modul daha uzun ve
+# zor olur - dizi sinirsiz buyuyebiliyor, coksmeyeceginden emin olabilirsin.
+simon_stages = 5
+
+
+[events]
+# Rastgele bir "sabotaj olayi" denemesi arasindaki sure (milisaniye).
+# KUCULTURSEN olaylar DAHA SIK gelir (oyun daha zor/kaotik olur).
+# BUYUTURSEN olaylar DAHA SEYREK gelir.
+# Not: her denemede olay mutlaka baslamayabilir (orn. Simon Says veya The
+# Button modulunde tam o an kritik bir islem yapiliyorsa olay ertelenir,
+# bir sonraki uygun ana kadar bekler).
+interval_ms = 15000
+
+[events.duration_ms]
+# Her sabotaj olayinin ekranda ne kadar sure (milisaniye) kalacagi.
+# Buyuk deger = olay daha uzun surer, oyuncuyu daha cok ugrastirir.
+
+# Yazilar/harfler karisir, okumasi zorlasir.
+dyslexia = 9000
+# Ekran 180 derece ters doner.
+upside_down = 7000
+# Sahte "mavi ekran" (sistem hatasi) simulasyonu, ekranin cogunu kaplar.
+blue_screen = 9000
+# Ekran sallanir/titrer, "saldiri tespit edildi" banner'i gorunur.
+turk_attack = 11000
+# Urkutucu video/canavar yuzu belirir (asagidaki [events.jumpscare] ile
+# kendi videolarini ekleyebilirsin).
+jumpscare = 3500
+# Ekran aynalanir (sag-sol ters doner).
+mirror_mode = 10000
+# Eski TV parazit efekti + "SIGNAL LOST" yazisi.
+static_glitch = 5000
+# Kirmizi/mavi alarm isiklari yanip soner (polis isigi gibi).
+siren_lights = 10000
+
+[events.jumpscare]
+# Jumpscare olayi tetiklendiginde EKRANDA OYNATILACAK video dosyalarinin
+# yollari. En fazla 3 tane ekleyebilirsin - olay her tetiklendiginde
+# bunlardan biri RASTGELE secilip tam ekran oynatilir.
+#
+# Yol formati: bilgisayarindaki tam dosya yolu, orn:
+#   "C:\\Users\\Lenovo\\Videos\\korkunc1.mp4"
+# (Windows yollarinda ters slash'i CIFT yazmayi unutma: \\ )
+#
+# Bos birakirsan (asagidaki gibi []), eski canavar-yuzu CSS efekti +
+# sentezlenmis korku sesi otomatik olarak devreye girer - hicbir sey
+# kirilmaz, video eklemek tamamen istege bagli.
+#
+# Ornek (kendi videolarini eklemek icin basindaki # isaretini kaldirip
+# kendi yollarinla degistir):
+# video_paths = [
+#   "C:\\Users\\Lenovo\\Videos\\jumpscare1.mp4",
+#   "C:\\Users\\Lenovo\\Videos\\jumpscare2.mp4",
+#   "C:\\Users\\Lenovo\\Videos\\jumpscare3.mp4",
+# ]
+video_paths = [
+	"C:\\Users\\Lenovo\\Downloads\\jeff-the-killer-scream-face-ytmp4.savetube.vip.mp4"
+]

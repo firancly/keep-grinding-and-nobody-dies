@@ -7,7 +7,11 @@ function fmt(ms: number): string {
   return `${m}:${s}`;
 }
 
-export function StatusBar({ view }: { view: DefuserView }) {
+// Deliberately does NOT show serial/batteries/CAR/FRK/wire colors/alien
+// phrase/etc - all instance-specific bomb data the defuser must read off
+// their own screen and describe out loud. This header only shows what an
+// expert bystander could plausibly already know (elapsed time, strikes).
+export function ExpertHeader({ view }: { view: DefuserView }) {
   const low = view.timer_ms <= 30000;
   return (
     <header className="status-bar">
@@ -19,15 +23,6 @@ export function StatusBar({ view }: { view: DefuserView }) {
             ✕
           </span>
         ))}
-      </div>
-
-      <div className="badges">
-        <span className="badge">SERIAL · {view.serial}</span>
-        <span className="badge">TYPE · {view.bomb_type}</span>
-        <span className="badge">PWR · {view.power}</span>
-        <span className="badge">
-          TEMP · {view.temp.band} ({view.temp.value}°)
-        </span>
       </div>
     </header>
   );

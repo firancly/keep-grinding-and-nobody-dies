@@ -15,7 +15,8 @@
       {
         "title": "keep-grinding-and-nobody-dies",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "fullscreen": true
       }
     ],
     "security": {

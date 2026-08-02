@@ -1,6 +1,6 @@
-// Shared protocol types — these mirror the Rust `DefuserView` serde structs.
-// When the backend is ready, the frontend receives one of these per
-// `state:update` event; until then we render off `mock.ts`.
+// Shared protocol types — these mirror the Rust `DefuserView` serde structs
+// in src-tauri/src/view.rs exactly. The frontend receives one of these per
+// `state:update` event.
 
 export interface DefuserView {
   phase: "Idle" | "Running" | "Defused" | "Exploded";
@@ -8,35 +8,38 @@ export interface DefuserView {
   strikes: number;
   max_strikes: number;
   serial: string; // defuser reads this aloud to the expert
-  bomb_type: "Alpha" | "Beta" | "Omega";
-  power: "Battery" | "Electricity";
-  temp: { value: number; band: "Low" | "Medium" | "High" };
+  batteries: number; // 0-3
+  car: boolean; // "CAR" indicator lit
+  frk: boolean; // "FRK" indicator lit
   modules: ModuleState[];
   active_event: EventInfo | null;
+  // Index into `modules` of the module currently being played, or null
+  // while idle/defused/exploded. Modules before this index are solved;
+  // modules after it haven't started yet (placeholder data only).
+  active_module_index: number | null;
 }
 
-export type ModuleState =
-  | WiresModule
-  | SimonModule
-  | PasswordModule
-  | HoldModule;
+export type ModuleState = WiresModule | SimonModule | MemoryModule | HoldModule;
 
-export type WireColor =
-  | "red"
-  | "blue"
-  | "green"
-  | "white"
-  | "black"
-  | "orange"
-  | "yellow";
-
-export type SimonColor = "red" | "blue" | "green" | "yellow";
+export interface WireSlot {
+  index: number; // 0-3, physical wire position
+  cut: boolean;
+}
 
 export interface WiresModule {
   kind: "Wires";
-  slots: { id: number; color: WireColor; cut: boolean }[];
+  wires: [WireSlot, WireSlot, WireSlot, WireSlot];
+  armed: boolean; // false until all 4 wires have been reconnected
+  alien_phrase: string;
+  alien_class: "ALPHA" | "BETA" | "OMEGA";
+  alien_grammar: string; // e.g. "ACTION - INDEX - OBJECT"
+  alien_action: string;
+  alien_noun: string;
+  alien_ordinals: [string, string, string, string];
   solved: boolean;
 }
+
+export type SimonColor = "red" | "blue" | "green" | "yellow";
 
 export interface SimonModule {
   kind: "Simon";
@@ -45,19 +48,26 @@ export interface SimonModule {
   solved: boolean;
 }
 
-export interface PasswordModule {
-  kind: "Password";
-  current_char: string; // the letter currently shown at the active slot
-  position: number; // which slot (0-based) is being edited
-  len: number; // total slots, e.g. 5
+export interface MemoryModule {
+  kind: "Memory";
+  stage: number; // 1-5
+  display: number; // 1-4, the number shown this stage
+  labels: [number, number, number, number]; // label at physical position 0-3
   solved: boolean;
 }
 
+export type ButtonColor = "blue" | "white" | "yellow" | "red";
+export type ButtonLabel = "abort" | "detonate" | "hold" | "press";
+export type StripColor = "blue" | "white" | "yellow" | "red";
+
 export interface HoldModule {
   kind: "Hold";
-  color: SimonColor;
-  label: string; // text on the button, e.g. "HOLD" / "ABORT"
+  color: ButtonColor;
+  label: ButtonLabel;
+  active_slot: number; // 0-3, which physical button is "the button"
   holding: boolean; // true while physically pressed
+  strip_visible: boolean;
+  strip_color: StripColor | null;
   solved: boolean;
 }
 
@@ -66,9 +76,16 @@ export type EventKind =
   | "UpsideDown"
   | "FakeBlueScreen"
   | "TurkAttack"
-  | "FnafJumpscare";
+  | "Jumpscare"
+  | "MirrorMode"
+  | "StaticGlitch"
+  | "SirenLights";
 
 export interface EventInfo {
   kind: EventKind;
   remaining_ms: number;
+  // Only set for "Jumpscare", when game_config.toml has at least one video
+  // configured - a ready-to-use URL (served by the relay). Null = fall back
+  // to the built-in CSS monster-face effect.
+  video_url: string | null;
 }

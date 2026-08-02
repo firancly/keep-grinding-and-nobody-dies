@@ -1,0 +1,1246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <title>Keep Grinding — Defuser</title>
+    <style>
+      :root {
+        --bg: #191632;
+        --casing: #0e0c1e;
+        --panel: #171233;
+        --panel-2: #1e1840;
+        --edge: #2c2555;
+        --edge-hot: #4a3f86;
+        --ink: #ece9f7;
+        --muted: #8a85b8;
+        --gold: #c9a24b;
+        --danger: #e5484d;
+        --ok: #34d17a;
+        --wire-blue: #4c8dff;
+        --wire-white: #e7e5f2;
+        --wire-yellow: #f2c53d;
+        --wire-red: #e5484d;
+        --wire-green: #34d17a;
+      }
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: radial-gradient(
+          circle at 50% 0%,
+          #221c45 0%,
+          var(--bg) 55%
+        );
+        color: var(--ink);
+        font-family: "Segoe UI", system-ui, sans-serif;
+        user-select: none;
+      }
+
+      /* ---- Fullscreen gate ------------------------------------------------- */
+      .fullscreen-gate {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg);
+      }
+      .fullscreen-gate.hidden {
+        display: none;
+      }
+      .gate-content {
+        text-align: center;
+        padding: 24px;
+      }
+      .gate-title {
+        font-size: clamp(24px, 6vw, 40px);
+        font-weight: 900;
+        letter-spacing: 2px;
+        line-height: 1.25;
+        margin-bottom: 32px;
+        color: var(--gold);
+        text-shadow: 0 0 24px rgba(201, 162, 75, 0.4);
+      }
+      .enter-btn {
+        font-size: clamp(18px, 4vw, 26px);
+        font-weight: 900;
+        letter-spacing: 3px;
+        padding: 22px 48px;
+        border-radius: 16px;
+        border: 2px solid var(--gold);
+        background: linear-gradient(180deg, var(--panel-2), var(--panel));
+        color: var(--gold);
+        box-shadow: 0 0 30px rgba(201, 162, 75, 0.25);
+        cursor: pointer;
+      }
+      .enter-btn:active {
+        transform: translateY(2px);
+      }
+      .gate-hint {
+        margin-top: 20px;
+        color: var(--muted);
+        font-size: 13px;
+        letter-spacing: 1px;
+      }
+
+      /* ---- Layout ------------------------------------------------------------ */
+      .defuser {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(8px, 2vw, 24px);
+      }
+      .casing {
+        width: 100%;
+        height: 100%;
+        max-width: 1400px;
+        background: linear-gradient(180deg, var(--casing), #0a0817);
+        border: 2px solid var(--edge);
+        border-radius: 20px;
+        box-shadow:
+          0 0 0 6px #060512,
+          0 30px 80px rgba(0, 0, 0, 0.6),
+          inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        padding: clamp(10px, 2vw, 22px);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .status-bar {
+        display: flex;
+        align-items: center;
+        gap: clamp(10px, 2vw, 22px);
+        flex-wrap: wrap;
+        padding: 6px 10px 14px;
+        border-bottom: 1px dashed var(--edge);
+        margin-bottom: 14px;
+        flex-shrink: 0;
+      }
+      .timer {
+        font-family: "Courier New", monospace;
+        font-size: clamp(38px, 6.5vw, 62px);
+        line-height: 1;
+        letter-spacing: 2px;
+        color: var(--gold);
+        text-shadow: 0 0 18px rgba(201, 162, 75, 0.35);
+        min-width: 130px;
+        font-weight: 900;
+      }
+      .timer.is-low {
+        color: var(--danger);
+        text-shadow: 0 0 18px rgba(229, 72, 77, 0.5);
+        animation: blink 1s steps(2, start) infinite;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0.35;
+        }
+      }
+
+      .strikes {
+        display: flex;
+        gap: 6px;
+        font-size: clamp(16px, 2.5vw, 22px);
+      }
+      .strike {
+        color: var(--edge-hot);
+      }
+      .strike.is-hit {
+        color: var(--danger);
+        text-shadow: 0 0 10px rgba(229, 72, 77, 0.6);
+      }
+
+      .badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-left: auto;
+      }
+      .badge {
+        font-size: clamp(10px, 1.6vw, 12px);
+        letter-spacing: 0.5px;
+        color: var(--muted);
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 999px;
+        padding: 5px 11px;
+        white-space: nowrap;
+      }
+      .badge.is-lit {
+        color: var(--ok);
+        border-color: rgba(52, 209, 122, 0.5);
+        box-shadow: 0 0 10px rgba(52, 209, 122, 0.25);
+      }
+
+      .module-grid {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        overflow-y: auto;
+        padding: 4px 0;
+      }
+      .module-stepper {
+        display: flex;
+        justify-content: center;
+        gap: clamp(14px, 3vw, 28px);
+        flex-wrap: wrap;
+      }
+      .step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        opacity: 0.4;
+      }
+      .step-dot {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid var(--edge);
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--muted);
+      }
+      .step-label {
+        font-size: 10px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .step-done {
+        opacity: 0.7;
+      }
+      .step-done .step-dot {
+        border-color: var(--ok);
+        color: var(--ok);
+        background: rgba(52, 209, 122, 0.12);
+      }
+      .step-current {
+        opacity: 1;
+      }
+      .step-current .step-dot {
+        border-color: var(--gold);
+        color: var(--gold);
+        box-shadow: 0 0 16px rgba(201, 162, 75, 0.4);
+      }
+      .step-current .step-label {
+        color: var(--gold);
+      }
+      .module-card {
+        background: linear-gradient(180deg, var(--panel), var(--panel-2));
+        border: 1px solid var(--edge);
+        border-radius: 14px;
+        padding: 14px;
+        min-height: 180px;
+        width: min(520px, 100%);
+        display: flex;
+        flex-direction: column;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      }
+      .module-card.is-solved {
+        border-color: rgba(52, 209, 122, 0.5);
+        box-shadow: 0 0 22px rgba(52, 209, 122, 0.18);
+      }
+      .module-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .module-title {
+        font-size: 18px;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+      }
+      .module-status {
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--muted);
+      }
+      .is-solved .module-status {
+        color: var(--ok);
+      }
+      .module-body {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* ---- Wires -------------------------------------------------------------- */
+      .wire-list {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .wire-armed {
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        color: var(--muted);
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .wire-armed.is-armed {
+        color: var(--ok);
+      }
+      .wire-row {
+        display: grid;
+        grid-template-columns: 20px 1fr 54px;
+        align-items: center;
+        gap: 10px;
+      }
+      .wire-index {
+        color: var(--muted);
+        font-size: 12px;
+        text-align: center;
+      }
+      .wire {
+        position: relative;
+        height: 10px;
+        border-radius: 6px;
+      }
+      .wire-line {
+        position: absolute;
+        inset: 0;
+        border-radius: 6px;
+        background: var(--wire-white);
+        box-shadow: 0 0 10px var(--wire-white);
+      }
+      .wire-gap {
+        position: absolute;
+        left: 50%;
+        top: -3px;
+        width: 14px;
+        height: 16px;
+        transform: translateX(-50%) skewX(-18deg);
+        background: var(--panel-2);
+      }
+      .wire-status {
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .wire-row.is-cut .wire-line {
+        opacity: 0.28;
+        box-shadow: none;
+      }
+      .wire-row.is-cut .wire-status {
+        text-decoration: line-through;
+        opacity: 0.5;
+      }
+      .alien-box {
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px dashed var(--edge-hot);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.2);
+        text-align: center;
+      }
+      .alien-phrase {
+        font-family: "Courier New", monospace;
+        font-size: 16px;
+        letter-spacing: 2px;
+        color: var(--gold);
+      }
+      .alien-class {
+        margin-top: 4px;
+        font-size: 10px;
+        letter-spacing: 1px;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+
+      /* ---- Simon ---------------------------------------------------------------- */
+      .simon {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+      .simon-pads {
+        display: grid;
+        grid-template-columns: repeat(2, 46px);
+        grid-auto-rows: 46px;
+        gap: 8px;
+      }
+      .simon-pad {
+        border-radius: 10px;
+        background: var(--c);
+        opacity: 0.32;
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+        transition:
+          opacity 0.08s,
+          box-shadow 0.08s,
+          transform 0.08s;
+      }
+      .simon-pad.red {
+        --c: var(--wire-red);
+      }
+      .simon-pad.blue {
+        --c: var(--wire-blue);
+      }
+      .simon-pad.green {
+        --c: var(--wire-green);
+      }
+      .simon-pad.yellow {
+        --c: var(--wire-yellow);
+      }
+      .simon-pad.is-lit {
+        opacity: 1;
+        transform: scale(1.05);
+        box-shadow: 0 0 22px var(--c);
+      }
+      .simon-progress {
+        display: flex;
+        gap: 6px;
+      }
+      .pip {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--edge);
+      }
+      .pip.is-done {
+        background: var(--ok);
+        box-shadow: 0 0 8px rgba(52, 209, 122, 0.6);
+      }
+
+      /* ---- Memory ----------------------------------------------------------------- */
+      .memory {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .memory-stage {
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .memory-display {
+        font-family: "Courier New", monospace;
+        font-size: 46px;
+        color: var(--gold);
+        text-shadow: 0 0 18px rgba(201, 162, 75, 0.35);
+        line-height: 1;
+      }
+      .memory-slots {
+        display: flex;
+        gap: 8px;
+      }
+      .memory-slot {
+        width: 42px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 0;
+        border-radius: 8px;
+        background: #0c0a1c;
+        border: 1px solid var(--edge);
+      }
+      .memory-slot-index {
+        font-size: 8px;
+        letter-spacing: 0.5px;
+        color: var(--muted);
+      }
+      .memory-slot-label {
+        font-family: "Courier New", monospace;
+        font-size: 20px;
+      }
+
+      /* ---- Hold ----------------------------------------------------------------- */
+      .hold {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+      .hold-slot-indicator {
+        font-size: 10px;
+        letter-spacing: 1px;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .hold-btn {
+        width: 108px;
+        height: 60px;
+        border: none;
+        border-radius: 12px;
+        font-weight: 900;
+        font-size: 18px;
+        letter-spacing: 1px;
+        color: #0a0817;
+        background: var(--c);
+        box-shadow:
+          0 6px 0 rgba(0, 0, 0, 0.4),
+          0 0 22px var(--c);
+      }
+      .hold-btn.blue {
+        --c: var(--wire-blue);
+      }
+      .hold-btn.white {
+        --c: var(--wire-white);
+      }
+      .hold-btn.yellow {
+        --c: var(--wire-yellow);
+      }
+      .hold-btn.red {
+        --c: var(--wire-red);
+      }
+      .hold-btn.is-holding {
+        transform: translateY(4px);
+        box-shadow:
+          0 2px 0 rgba(0, 0, 0, 0.4),
+          0 0 30px var(--c);
+      }
+      .hold-status {
+        font-size: 11px;
+        letter-spacing: 1px;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+      .hold-strip {
+        margin-top: 4px;
+        padding: 6px 12px;
+        border: 1px dashed var(--c);
+        border-radius: 8px;
+        font-size: 11px;
+        letter-spacing: 1px;
+        color: var(--c);
+      }
+      .hold-strip.blue {
+        --c: var(--wire-blue);
+      }
+      .hold-strip.white {
+        --c: var(--wire-white);
+      }
+      .hold-strip.yellow {
+        --c: var(--wire-yellow);
+      }
+      .hold-strip.red {
+        --c: var(--wire-red);
+      }
+
+      /* ---- Waiting / result screens ------------------------------------------- */
+      .waiting-screen,
+      .result-screen {
+        flex: 1;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 12px;
+      }
+      .waiting-screen.show,
+      .result-screen.show {
+        display: flex;
+      }
+      .waiting-screen p {
+        font-size: clamp(20px, 4vw, 30px);
+        letter-spacing: 1px;
+        color: var(--muted);
+      }
+      .result-title {
+        font-size: clamp(48px, 12vw, 110px);
+        font-weight: 900;
+        letter-spacing: 4px;
+      }
+      .result-screen.defused .result-title {
+        color: var(--ok);
+        text-shadow: 0 0 40px rgba(52, 209, 122, 0.5);
+      }
+      .result-screen.exploded .result-title {
+        color: var(--danger);
+        text-shadow: 0 0 40px rgba(229, 72, 77, 0.5);
+      }
+      .result-detail {
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      /* ---- Events (whole-screen) ------------------------------------------------ */
+      /* Note: these classes land on #shell itself (which already has class
+   "casing"), not a wrapper around it - so they must target the element
+   directly rather than "X .casing" (a descendant selector would never
+   match here). */
+      .upside {
+        transform: rotate(180deg);
+      }
+      .turk {
+        animation: drunk 0.18s infinite alternate;
+      }
+      .mirror {
+        transform: scaleX(-1);
+      }
+      .siren {
+        animation: sirenFlash 0.5s infinite;
+      }
+      .dyslexia .module-title,
+      .dyslexia .wire-status,
+      .dyslexia .badge {
+        display: inline-block;
+      }
+      @keyframes drunk {
+        from {
+          transform: translate(-6px, 4px) rotate(-0.7deg);
+        }
+        to {
+          transform: translate(7px, -3px) rotate(0.8deg);
+        }
+      }
+      @keyframes sirenFlash {
+        0%,
+        100% {
+          box-shadow:
+            0 0 0 6px #060512,
+            0 0 100px 16px rgba(229, 72, 77, 0.55);
+        }
+        50% {
+          box-shadow:
+            0 0 0 6px #060512,
+            0 0 100px 16px rgba(76, 141, 255, 0.55);
+        }
+      }
+      .event-banner {
+        display: none;
+        position: fixed;
+        left: 50%;
+        top: 14px;
+        transform: translateX(-50%);
+        z-index: 950;
+        background: var(--gold);
+        color: #0a0817;
+        border-radius: 999px;
+        padding: 8px 20px;
+        font-weight: 900;
+        letter-spacing: 2px;
+        font-size: 13px;
+      }
+      .event-banner.show {
+        display: block;
+      }
+
+      .overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+      }
+      .overlay.show {
+        display: flex;
+      }
+      .bsod {
+        background: #0647a8;
+        color: #fff;
+        padding: 8vw;
+        align-items: flex-start;
+        justify-content: center;
+        flex-direction: column;
+        font-family: ui-monospace, monospace;
+      }
+      .bsod .face {
+        font-size: 70px;
+      }
+      .bsod p {
+        max-width: 620px;
+        font-size: clamp(14px, 2.5vw, 20px);
+      }
+      .bsod-pct {
+        opacity: 0.85;
+      }
+
+      .jumpscare {
+        background: #020204;
+        align-items: center;
+        justify-content: center;
+        animation: flashBg 0.1s infinite;
+      }
+      .jumpscare-video {
+        background: #000;
+      }
+      .jumpscare-video video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .monster {
+        width: min(430px, 70vw);
+        aspect-ratio: 1;
+        border-radius: 42% 48% 39% 45%;
+        background: linear-gradient(#384455, #101620);
+        border: 12px solid #7f96aa;
+        position: relative;
+        box-shadow: 0 0 90px #b8dcff;
+      }
+      .eye {
+        position: absolute;
+        top: 27%;
+        width: 24%;
+        height: 22%;
+        border-radius: 50%;
+        background: white;
+        box-shadow: 0 0 35px white;
+      }
+      .eye.left {
+        left: 16%;
+      }
+      .eye.right {
+        right: 16%;
+      }
+      .pupil {
+        position: absolute;
+        inset: 30%;
+        border-radius: 50%;
+        background: #020204;
+      }
+      .mouth {
+        position: absolute;
+        left: 14%;
+        right: 14%;
+        bottom: 15%;
+        height: 25%;
+        background: #020204;
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 3px;
+        padding: 8px;
+      }
+      .tooth {
+        background: white;
+        clip-path: polygon(50% 100%, 0 0, 100% 0);
+      }
+      @keyframes flashBg {
+        0% {
+          filter: invert(0);
+        }
+        50% {
+          filter: invert(1);
+        }
+        100% {
+          filter: invert(0);
+        }
+      }
+
+      .static-noise {
+        background: repeating-linear-gradient(
+          0deg,
+          #111 0px,
+          #111 2px,
+          #333 2px,
+          #333 4px
+        );
+        align-items: center;
+        justify-content: center;
+        animation: staticFlicker 0.08s infinite;
+      }
+      .static-noise span {
+        font-size: clamp(28px, 6vw, 60px);
+        font-weight: 900;
+        letter-spacing: 4px;
+        color: #fff;
+        text-shadow: 2px 2px 0 #000;
+      }
+      @keyframes staticFlicker {
+        0% {
+          filter: brightness(1) contrast(1);
+        }
+        50% {
+          filter: brightness(1.4) contrast(1.3);
+        }
+        100% {
+          filter: brightness(0.9) contrast(1);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="fullscreenGate" class="fullscreen-gate">
+      <div class="gate-content">
+        <div class="gate-title">KEEP GRINDING<br />AND NOBODY DIES</div>
+        <button id="enterBtn" class="enter-btn" type="button">
+          TAP TO BEGIN
+        </button>
+        <div class="gate-hint">Hand this device to the defuser</div>
+      </div>
+    </div>
+
+    <div id="eventBanner" class="event-banner"></div>
+    <div id="bsod" class="overlay bsod">
+      <div class="face">:(</div>
+      <h1>ESP32_FATAL_INTERFACE_ERROR</h1>
+      <p>The module encountered a highly suspicious problem.</p>
+      <p>Collecting bad decisions: <span id="bsodPercent">0</span>%</p>
+    </div>
+    <div id="jump" class="overlay jumpscare">
+      <div class="monster">
+        <div class="eye left"><div class="pupil"></div></div>
+        <div class="eye right"><div class="pupil"></div></div>
+        <div class="mouth" id="teeth"></div>
+      </div>
+    </div>
+    <div id="jumpVideo" class="overlay jumpscare-video">
+      <video id="jumpVideoEl" autoplay loop playsinline></video>
+    </div>
+    <div id="staticNoise" class="overlay static-noise">
+      <span>SIGNAL LOST</span>
+    </div>
+
+    <div id="root" class="defuser">
+      <div id="shell" class="casing">
+        <header class="status-bar">
+          <div id="timer" class="timer">3:00</div>
+          <div id="strikes" class="strikes"></div>
+          <div class="badges">
+            <span class="badge">SERIAL · <span id="serial">------</span></span>
+            <span class="badge">BATT · <span id="batteries">0</span></span>
+            <span id="badgeCar" class="badge">IND · CAR</span>
+            <span id="badgeFrk" class="badge">IND · FRK</span>
+          </div>
+        </header>
+
+        <main id="moduleGrid" class="module-grid"></main>
+
+        <div id="waitingScreen" class="waiting-screen">
+          <p>Waiting for bomb…</p>
+        </div>
+        <div id="resultScreen" class="result-screen"></div>
+      </div>
+    </div>
+
+    <script>
+      const teeth = document.getElementById("teeth");
+      for (let i = 0; i < 14; i++)
+        teeth.innerHTML += '<div class="tooth"></div>';
+
+      const EVENT_LABELS = {
+        Dyslexia: "D Y S L E X I A",
+        UpsideDown: "UPSIDE DOWN",
+        FakeBlueScreen: "SYSTEM ERROR",
+        TurkAttack: "⚠ INTRUSION DETECTED",
+        Jumpscare: "!!!",
+        MirrorMode: "MIRROR MODE",
+        StaticGlitch: "SIGNAL LOST",
+        SirenLights: "🚨 ALERT 🚨",
+      };
+
+      let audioCtx = null;
+
+      function getAudioContext() {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) audioCtx = new AudioContextClass();
+        }
+        return audioCtx;
+      }
+
+      // Synthesized on the fly (noise burst + a descending screech) so no
+      // audio asset needs to be bundled/embedded.
+      function playJumpscareSound() {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        try {
+          const now = ctx.currentTime;
+
+          const bufferSize = Math.floor(ctx.sampleRate * 0.4);
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp((-3 * i) / bufferSize);
+          }
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+          const noiseGain = ctx.createGain();
+          noiseGain.gain.setValueAtTime(0.9, now);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+          noise.connect(noiseGain).connect(ctx.destination);
+          noise.start(now);
+
+          const osc = ctx.createOscillator();
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(1200, now);
+          osc.frequency.exponentialRampToValueAtTime(80, now + 0.5);
+          const oscGain = ctx.createGain();
+          oscGain.gain.setValueAtTime(0.4, now);
+          oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+          osc.connect(oscGain).connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.5);
+        } catch (error) {
+          console.error("Failed to play jumpscare sound:", error);
+        }
+      }
+
+      document.getElementById("enterBtn").addEventListener("click", () => {
+        // Creating the AudioContext here (inside a user-gesture handler)
+        // satisfies browser autoplay policies so the jumpscare sound can
+        // play later without another tap.
+        getAudioContext();
+
+        const el = document.documentElement;
+        const request =
+          el.requestFullscreen ||
+          el.webkitRequestFullscreen ||
+          el.msRequestFullscreen;
+        if (request) {
+          request.call(el).catch(() => {});
+        }
+        document.getElementById("fullscreenGate").classList.add("hidden");
+        poll();
+      });
+
+      function fmt(ms) {
+        const total = Math.max(0, Math.floor(ms / 1000));
+        const m = String(Math.floor(total / 60)).padStart(2, "0");
+        const s = String(total % 60).padStart(2, "0");
+        return `${m}:${s}`;
+      }
+
+      function scrambleText(root) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+        nodes.forEach((node) => {
+          const text = node.nodeValue;
+          if (!text || text.trim().length < 4) return;
+          const chars = text.split("");
+          for (let i = 1; i < chars.length - 1; i++) {
+            if (/[A-Za-z]/.test(chars[i]) && Math.random() < 0.12) {
+              const next = Math.min(i + 1, chars.length - 1);
+              const tmp = chars[i];
+              chars[i] = chars[next];
+              chars[next] = tmp;
+            }
+          }
+          node.nodeValue = chars.join("");
+        });
+      }
+
+      function moduleTitle(kind) {
+        return (
+          {
+            Wires: "Alien Wires",
+            Simon: "Simon Says",
+            Memory: "Memory",
+            Hold: "The Button",
+          }[kind] || kind
+        );
+      }
+
+      function renderWires(mod) {
+        const wires = mod.wires
+          .map(
+            (w) => `
+    <div class="wire-row ${w.cut ? "is-cut" : ""}">
+      <span class="wire-index">${w.index + 1}</span>
+      <span class="wire"><span class="wire-line"></span>${w.cut ? '<span class="wire-gap"></span>' : ""}</span>
+      <span class="wire-status">${w.cut ? "CUT" : "INTACT"}</span>
+    </div>`,
+          )
+          .join("");
+
+        const alien = mod.armed
+          ? `<div class="alien-box">
+        <div class="alien-phrase">${mod.alien_phrase}</div>
+        <div class="alien-class">${mod.alien_class} CLASS · ${mod.alien_grammar}</div>
+      </div>`
+          : "";
+
+        return `<div class="wire-list">
+    <div class="wire-armed ${mod.armed ? "is-armed" : ""}">${mod.armed ? "ARMED — cut the correct wire" : "Reconnect every wire to arm"}</div>
+    ${wires}
+    ${alien}
+  </div>`;
+      }
+
+      function renderSimon(mod, state) {
+        const colors = ["red", "blue", "green", "yellow"];
+        const pads = colors
+          .map(
+            (c) =>
+              `<span class="simon-pad ${c} ${state.lit === c ? "is-lit" : ""}"></span>`,
+          )
+          .join("");
+        const pips = mod.flash_sequence
+          .map(
+            (_, i) =>
+              `<span class="pip ${i < mod.input_len ? "is-done" : ""}"></span>`,
+          )
+          .join("");
+        return `<div class="simon"><div class="simon-pads">${pads}</div><div class="simon-progress">${pips}</div></div>`;
+      }
+
+      function renderMemory(mod) {
+        const slots = mod.labels
+          .map(
+            (label, i) => `
+    <div class="memory-slot">
+      <span class="memory-slot-index">POS ${i + 1}</span>
+      <span class="memory-slot-label">${label}</span>
+    </div>`,
+          )
+          .join("");
+        return `<div class="memory">
+    <div class="memory-stage">STAGE ${mod.stage} / 5</div>
+    <div class="memory-display">${mod.display}</div>
+    <div class="memory-slots">${slots}</div>
+  </div>`;
+      }
+
+      function renderHold(mod) {
+        const strip = mod.strip_visible
+          ? `<div class="hold-strip ${mod.strip_color}">STRIP · ${mod.strip_color.toUpperCase()}</div>`
+          : "";
+        return `<div class="hold">
+    <div class="hold-slot-indicator">ACTIVE BUTTON · POS ${mod.active_slot + 1}</div>
+    <button type="button" class="hold-btn ${mod.color} ${mod.holding ? "is-holding" : ""}" disabled>${mod.label.toUpperCase()}</button>
+    <div class="hold-status">${mod.holding ? "HOLDING…" : "release to arm"}</div>
+    ${strip}
+  </div>`;
+      }
+
+      // One Simon animation timer per module card, keyed by the module's array
+      // index in the current view (module order is stable while a game runs).
+      const simonAnimState = {};
+
+      function ensureSimonAnimation(index, mod) {
+        if (!simonAnimState[index]) {
+          simonAnimState[index] = { lit: null, i: 0, timer: null };
+        }
+        const state = simonAnimState[index];
+
+        if (state.sequenceKey !== mod.flash_sequence.join(",") || mod.solved) {
+          clearInterval(state.timer);
+          state.i = 0;
+          state.lit = null;
+          state.sequenceKey = mod.flash_sequence.join(",");
+
+          if (!mod.solved && mod.flash_sequence.length > 0) {
+            const step = () => {
+              state.lit = mod.flash_sequence[state.i];
+              renderAll();
+              setTimeout(() => {
+                state.lit = null;
+                state.i = (state.i + 1) % mod.flash_sequence.length;
+                renderAll();
+              }, 400);
+            };
+            step();
+            state.timer = setInterval(step, 700);
+          }
+        }
+
+        return state;
+      }
+
+      function renderModule(mod, index) {
+        let body;
+        switch (mod.kind) {
+          case "Wires":
+            body = renderWires(mod);
+            break;
+          case "Simon":
+            body = renderSimon(mod, ensureSimonAnimation(index, mod));
+            break;
+          case "Memory":
+            body = renderMemory(mod);
+            break;
+          case "Hold":
+            body = renderHold(mod);
+            break;
+          default:
+            body = "";
+        }
+
+        return `<section class="module-card ${mod.solved ? "is-solved" : ""}">
+    <header class="module-head">
+      <span class="module-title">${moduleTitle(mod.kind)}</span>
+      <span class="module-status">${mod.solved ? "✓ SOLVED" : "ARMED"}</span>
+    </header>
+    <div class="module-body">${body}</div>
+  </section>`;
+      }
+
+      let latestView = null;
+      let lastEventKind = null;
+
+      function renderAll() {
+        const view = latestView;
+        const shell = document.getElementById("shell");
+        const waitingScreen = document.getElementById("waitingScreen");
+        const resultScreen = document.getElementById("resultScreen");
+        const moduleGrid = document.getElementById("moduleGrid");
+        const statusBar = document.querySelector(".status-bar");
+
+        shell.classList.remove("upside", "turk", "dyslexia", "mirror", "siren");
+        document.getElementById("eventBanner").classList.remove("show");
+        document.getElementById("bsod").classList.remove("show");
+        document.getElementById("jump").classList.remove("show");
+        document.getElementById("jumpVideo").classList.remove("show");
+        document.getElementById("staticNoise").classList.remove("show");
+
+        if (!view || typeof view.phase !== "string") {
+          statusBar.style.display = "none";
+          moduleGrid.style.display = "none";
+          waitingScreen.classList.add("show");
+          resultScreen.classList.remove("show");
+          return;
+        }
+
+        document.getElementById("timer").textContent = fmt(view.timer_ms);
+        document
+          .getElementById("timer")
+          .classList.toggle("is-low", view.timer_ms <= 30000);
+        document.getElementById("serial").textContent = view.serial;
+        document.getElementById("batteries").textContent = view.batteries;
+        document
+          .getElementById("badgeCar")
+          .classList.toggle("is-lit", view.car);
+        document
+          .getElementById("badgeFrk")
+          .classList.toggle("is-lit", view.frk);
+
+        const strikes = document.getElementById("strikes");
+        strikes.innerHTML = "";
+        for (let i = 0; i < view.max_strikes; i++) {
+          const span = document.createElement("span");
+          span.className = `strike ${i < view.strikes ? "is-hit" : ""}`;
+          span.textContent = "✕";
+          strikes.appendChild(span);
+        }
+
+        if (view.phase === "Idle") {
+          statusBar.style.display = "";
+          moduleGrid.style.display = "none";
+          waitingScreen.classList.add("show");
+          resultScreen.classList.remove("show");
+          return;
+        }
+        waitingScreen.classList.remove("show");
+
+        if (view.phase === "Defused" || view.phase === "Exploded") {
+          statusBar.style.display = "";
+          moduleGrid.style.display = "none";
+          resultScreen.classList.add("show");
+          resultScreen.className = `result-screen show ${view.phase === "Defused" ? "defused" : "exploded"}`;
+          resultScreen.innerHTML =
+            view.phase === "Defused"
+              ? `<div class="result-title">DEFUSED</div><div class="result-detail">All four modules solved with ${fmt(view.timer_ms)} remaining.</div>`
+              : `<div class="result-title">BOOM</div><div class="result-detail">Second mistake or time expired.</div>`;
+          return;
+        }
+        resultScreen.classList.remove("show");
+        statusBar.style.display = "";
+        moduleGrid.style.display = "";
+
+        // Only one module is ever actually being played at a time - modules not
+        // yet reached still hold placeholder/default data, so show a compact
+        // progress stepper plus just the active module rather than all 4 at once.
+        const stepper = view.modules
+          .map((mod, i) => {
+            const stateClass = mod.solved
+              ? "step-done"
+              : i === view.active_module_index
+                ? "step-current"
+                : "";
+            return `<div class="step ${stateClass}">
+      <span class="step-dot">${mod.solved ? "✓" : i + 1}</span>
+      <span class="step-label">${moduleTitle(mod.kind).split(" ")[0]}</span>
+    </div>`;
+          })
+          .join("");
+
+        const activeModule =
+          view.active_module_index !== null
+            ? view.modules[view.active_module_index]
+            : null;
+        moduleGrid.innerHTML =
+          `<div class="module-stepper">${stepper}</div>` +
+          (activeModule
+            ? renderModule(activeModule, view.active_module_index)
+            : "");
+
+        const event = view.active_event;
+        if (event) {
+          const banner = document.getElementById("eventBanner");
+          banner.textContent = EVENT_LABELS[event.kind] || event.kind;
+          banner.classList.add("show");
+
+          if (event.kind === "Dyslexia") {
+            shell.classList.add("dyslexia");
+            scrambleText(moduleGrid);
+          }
+          if (event.kind === "UpsideDown") shell.classList.add("upside");
+          if (event.kind === "TurkAttack") shell.classList.add("turk");
+          if (event.kind === "MirrorMode") shell.classList.add("mirror");
+          if (event.kind === "SirenLights") shell.classList.add("siren");
+          if (event.kind === "FakeBlueScreen") {
+            document.getElementById("bsod").classList.add("show");
+            // BlueScreen's total duration is 9000ms (src-tauri/src/engine/events.rs)
+            document.getElementById("bsodPercent").textContent = Math.max(
+              0,
+              Math.min(100, Math.floor((9000 - event.remaining_ms) / 90)),
+            );
+          }
+          if (event.kind === "Jumpscare") {
+            const isNewJumpscare = lastEventKind !== "Jumpscare";
+
+            if (event.video_url) {
+              const videoEl = document.getElementById("jumpVideoEl");
+              if (isNewJumpscare) {
+                videoEl.src = event.video_url;
+                videoEl.currentTime = 0;
+                videoEl.play().catch(() => {});
+              }
+              document.getElementById("jumpVideo").classList.add("show");
+            } else {
+              document.getElementById("jump").classList.add("show");
+              if (isNewJumpscare) playJumpscareSound();
+            }
+          }
+          if (event.kind === "StaticGlitch")
+            document.getElementById("staticNoise").classList.add("show");
+        }
+        lastEventKind = event ? event.kind : null;
+      }
+
+      async function poll() {
+        try {
+          const response = await fetch(`/state?t=${Date.now()}`, {
+            cache: "no-store",
+          });
+          latestView = await response.json();
+        } catch (error) {
+          // Keep showing the last good view; a transient fetch failure isn't
+          // worth flashing the "waiting" screen over. Logged so a persistent
+          // failure is at least visible in devtools instead of silent.
+          console.error("Failed to poll /state:", error);
+        }
+        renderAll();
+        setTimeout(poll, 150);
+      }
+    </script>
+  </body>
+</html>

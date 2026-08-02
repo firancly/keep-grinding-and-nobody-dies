@@ -1,3 +1,7 @@
+/* Styles for the expert's desktop screen only. The defuser/player screen
+   is tablet.html (a separate, self-contained file with its own inline
+   styles) - the two are intentionally unrelated. */
+
 :root {
   --bg: #191632;
   --casing: #0e0c1e;
@@ -10,14 +14,6 @@
   --gold: #c9a24b;
   --danger: #e5484d;
   --ok: #34d17a;
-
-  --wire-red: #e5484d;
-  --wire-blue: #4c8dff;
-  --wire-green: #34d17a;
-  --wire-white: #e7e5f2;
-  --wire-black: #2a2740;
-  --wire-orange: #f6883a;
-  --wire-yellow: #f2c53d;
 }
 
 * {
@@ -45,9 +41,10 @@ body {
   padding: 24px;
 }
 
-/* ---- Bomb casing ---------------------------------------------------------- */
+/* ---- Casing ---------------------------------------------------------- */
 .casing {
-  width: min(1100px, 96vw);
+  width: min(1000px, 92vw);
+  position: relative;
   background: linear-gradient(180deg, var(--casing), #0a0817);
   border: 2px solid var(--edge);
   border-radius: 20px;
@@ -56,7 +53,7 @@ body {
   padding: 22px;
 }
 
-/* ---- Status bar ----------------------------------------------------------- */
+/* ---- Status bar (timer + strikes only - no bomb-instance data) -------- */
 .status-bar {
   display: flex;
   align-items: center;
@@ -100,305 +97,159 @@ body {
   text-shadow: 0 0 10px rgba(229, 72, 77, 0.6);
 }
 
-.badges {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-left: auto;
-}
-.badge {
-  font-size: 12px;
-  letter-spacing: 0.5px;
+.waiting-for-bomb {
   color: var(--muted);
-  background: var(--panel);
-  border: 1px solid var(--edge);
-  border-radius: 999px;
-  padding: 5px 11px;
-  white-space: nowrap;
+  font-family: "Germania One", serif;
+  font-size: 22px;
+  letter-spacing: 1px;
+  text-align: center;
+  padding: 40px;
 }
 
-/* ---- Module grid ---------------------------------------------------------- */
-.module-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 16px;
+.center-message {
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 20px;
+  letter-spacing: 0.5px;
 }
+.center-message.result .result-title {
+  font-size: 64px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  font-family: "Germania One", serif;
+}
+.center-message.defused .result-title { color: var(--ok); text-shadow: 0 0 30px rgba(52,209,122,0.4); }
+.center-message.exploded .result-title { color: var(--danger); text-shadow: 0 0 30px rgba(229,72,77,0.4); }
 
-.module-card {
+/* ---- Module stepper - which module, not its contents ------------------ */
+.module-stepper {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  padding: 6px 0 22px;
+}
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.4;
+}
+.step-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--edge);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.step-label {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.step-done { opacity: 0.7; }
+.step-done .step-dot { border-color: var(--ok); color: var(--ok); background: rgba(52,209,122,0.12); }
+.step-current { opacity: 1; }
+.step-current .step-dot { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 16px rgba(201,162,75,0.4); }
+.step-current .step-label { color: var(--gold); }
+
+/* ---- Manual - the expert's only window into the game ------------------ */
+.manual-panel {
+  display: flex;
+  flex-direction: column;
   background: linear-gradient(180deg, var(--panel), var(--panel-2));
   border: 1px solid var(--edge);
-  border-radius: 14px;
-  padding: 14px;
-  min-height: 190px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.module-card.is-solved {
-  border-color: rgba(52, 209, 122, 0.5);
-  box-shadow: 0 0 22px rgba(52, 209, 122, 0.18);
+  border-radius: 16px;
+  overflow: hidden;
 }
 
-.module-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-.module-title {
-  font-family: "Germania One", serif;
-  font-size: 19px;
-  color: var(--ink);
-  letter-spacing: 0.5px;
-}
-.module-status {
-  font-size: 10px;
-  letter-spacing: 1.5px;
-  color: var(--muted);
-}
-.is-solved .module-status {
-  color: var(--ok);
-}
-
-.module-body {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ---- Wires ---------------------------------------------------------------- */
-.wire-list {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.wire-row {
-  display: grid;
-  grid-template-columns: 20px 1fr 54px;
-  align-items: center;
-  gap: 10px;
-}
-.wire-index {
-  color: var(--muted);
-  font-size: 12px;
-  text-align: center;
-}
-.wire {
-  position: relative;
-  height: 10px;
-  border-radius: 6px;
-}
-.wire-line {
-  position: absolute;
-  inset: 0;
-  border-radius: 6px;
-  background: var(--c);
-  box-shadow: 0 0 10px var(--c);
-}
-.wire[data-color="red"] { --c: var(--wire-red); }
-.wire[data-color="blue"] { --c: var(--wire-blue); }
-.wire[data-color="green"] { --c: var(--wire-green); }
-.wire[data-color="white"] { --c: var(--wire-white); }
-.wire[data-color="black"] { --c: var(--wire-black); }
-.wire[data-color="orange"] { --c: var(--wire-orange); }
-.wire[data-color="yellow"] { --c: var(--wire-yellow); }
-
-.wire-gap {
-  position: absolute;
-  left: 50%;
-  top: -3px;
-  width: 14px;
-  height: 16px;
-  transform: translateX(-50%) skewX(-18deg);
-  background: var(--panel-2);
-}
-.wire-label {
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.wire-row.is-cut .wire-line {
-  opacity: 0.28;
-  box-shadow: none;
-}
-.wire-row.is-cut .wire-label {
-  text-decoration: line-through;
-  opacity: 0.5;
-}
-
-/* ---- Simon ---------------------------------------------------------------- */
-.simon {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-}
-.simon-pads {
-  display: grid;
-  grid-template-columns: repeat(2, 46px);
-  grid-auto-rows: 46px;
-  gap: 8px;
-}
-.simon-pad {
-  border-radius: 10px;
-  background: var(--c);
-  opacity: 0.32;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3);
-  transition: opacity 0.08s, box-shadow 0.08s, transform 0.08s;
-}
-.simon-pad[data-color="red"] { --c: var(--wire-red); }
-.simon-pad[data-color="blue"] { --c: var(--wire-blue); }
-.simon-pad[data-color="green"] { --c: var(--wire-green); }
-.simon-pad[data-color="yellow"] { --c: var(--wire-yellow); }
-.simon-pad.is-lit {
-  opacity: 1;
-  transform: scale(1.05);
-  box-shadow: 0 0 22px var(--c);
-}
-.simon-progress {
+.manual-tabs {
   display: flex;
   gap: 6px;
+  padding: 12px 18px 0;
+  flex-wrap: wrap;
 }
-.pip {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--edge);
-}
-.pip.is-done {
-  background: var(--ok);
-  box-shadow: 0 0 8px rgba(52, 209, 122, 0.6);
-}
-
-/* ---- Password ------------------------------------------------------------- */
-.pw-slots {
-  display: flex;
-  gap: 8px;
-}
-.pw-slot {
-  width: 38px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 0;
-  border-radius: 8px;
-  background: #0c0a1c;
+.manual-tab {
   border: 1px solid var(--edge);
-}
-.pw-slot.is-active {
-  border-color: var(--gold);
-  box-shadow: 0 0 14px rgba(201, 162, 75, 0.25);
-}
-.pw-char {
-  font-family: "Courier New", monospace;
-  font-size: 24px;
-  color: var(--ink);
-}
-.pw-arrow {
-  font-size: 10px;
-  color: var(--gold);
-}
-.pw-slot:not(.is-active) .pw-char {
+  background: var(--casing);
   color: var(--muted);
+  border-radius: 10px 10px 0 0;
+  padding: 8px 16px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+.manual-tab.is-active {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: var(--panel-2);
+}
+/* The tab matching the module actually being played right now - a small
+   marker distinct from "is-active" (which tab you're currently reading),
+   since the expert can browse other tabs without losing track of play. */
+.manual-tab.is-live {
+  box-shadow: 0 0 0 1px var(--ok) inset;
 }
 
-/* ---- Hold ----------------------------------------------------------------- */
-.hold {
+.manual-body {
+  padding: 20px 22px 26px;
+  max-height: 56vh;
+  overflow-y: auto;
+}
+.manual-section { display: flex; flex-direction: column; gap: 14px; }
+.manual-intro, .manual-note {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.manual-note { color: var(--muted); }
+.manual-steps, .manual-list {
+  margin: 0;
+  padding-left: 20px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.5;
 }
-.hold-btn {
-  width: 108px;
-  height: 60px;
-  border: none;
-  border-radius: 12px;
-  font-family: "Germania One", serif;
-  font-size: 20px;
-  letter-spacing: 1px;
-  color: #0a0817;
-  background: var(--c);
-  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.4), 0 0 22px var(--c);
-  cursor: default;
+
+.manual-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
 }
-.hold-btn[data-color="red"] { --c: var(--wire-red); }
-.hold-btn[data-color="blue"] { --c: var(--wire-blue); }
-.hold-btn[data-color="green"] { --c: var(--wire-green); }
-.hold-btn[data-color="yellow"] { --c: var(--wire-yellow); }
-.hold-btn.is-holding {
-  transform: translateY(4px);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 0 30px var(--c);
+.manual-table th, .manual-table td {
+  border: 1px solid var(--edge);
+  padding: 7px 10px;
+  text-align: left;
 }
-.hold-status {
+.manual-table th {
+  background: var(--casing);
+  color: var(--gold);
   font-size: 11px;
-  letter-spacing: 1px;
-  color: var(--muted);
+  letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 
-/* ---- Events (whole-screen) ------------------------------------------------ */
-.fx-upsidedown .casing {
-  transform: rotate(180deg);
+.manual-example {
+  padding: 14px 16px;
+  border: 1px dashed var(--edge-hot);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.2);
+  font-size: 14px;
+  line-height: 1.5;
 }
-.fx-dyslexia .module-title,
-.fx-dyslexia .wire-label,
-.fx-dyslexia .badge {
-  font-style: italic;
-  letter-spacing: 2px;
-  transform: scaleX(-1);
-  display: inline-block;
-}
-
-.event-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-.event-overlay.banner span {
-  font-family: "Germania One", serif;
-  font-size: clamp(28px, 6vw, 72px);
-  letter-spacing: 6px;
-  color: var(--danger);
-  text-shadow: 0 0 30px rgba(229, 72, 77, 0.5);
-  animation: shake 0.35s infinite;
-}
-.event-turkattack span {
-  color: var(--wire-orange);
-  text-shadow: 0 0 30px rgba(246, 136, 58, 0.5);
-}
-@keyframes shake {
-  0%, 100% { transform: translate(0, 0); }
-  25% { transform: translate(-4px, 2px); }
-  75% { transform: translate(4px, -2px); }
-}
-
-.bsod {
-  background: #0b53c1;
-  color: #fff;
-  gap: 10px;
-  padding: 40px;
-  text-align: left;
-  align-items: flex-start;
-  justify-content: center;
-}
-.bsod-face {
-  font-size: 90px;
-  line-height: 1;
-}
-.bsod p {
-  max-width: 620px;
-  font-size: 20px;
-}
-.bsod-pct {
-  opacity: 0.85;
+.manual-example-label {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--gold);
+  margin-bottom: 6px;
 }
