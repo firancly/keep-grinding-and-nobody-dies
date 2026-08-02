@@ -3,7 +3,9 @@ import type { ModuleState } from "../types";
 
 // Content here is a direct transcription of the exact rules implemented in
 // src-tauri/src/engine/{memory,simon,button_module,wires}.rs - keep these in
-// sync if those rules ever change.
+// sync if those rules ever change. The few numbers that come from
+// game_config.toml (hold_threshold_ms, simon_stages) are passed in as props
+// instead of hardcoded, so they can't drift out of sync with the config.
 
 type Tab = ModuleState["kind"]; // "Memory" | "Simon" | "Hold" | "Wires"
 const TABS: Tab[] = ["Memory", "Simon", "Hold", "Wires"];
@@ -18,7 +20,15 @@ const TAB_TITLES: Record<Tab, string> = {
 // (the module currently being played) auto-selects the matching page each
 // time it changes, but the expert can still click another tab to look
 // ahead or double check something.
-export function Manual({ activeKind }: { activeKind: Tab | null }) {
+export function Manual({
+  activeKind,
+  holdThresholdMs,
+  simonMaxStages,
+}: {
+  activeKind: Tab | null;
+  holdThresholdMs: number;
+  simonMaxStages: number;
+}) {
   const [tab, setTab] = useState<Tab>(activeKind ?? "Memory");
 
   useEffect(() => {
@@ -43,8 +53,8 @@ export function Manual({ activeKind }: { activeKind: Tab | null }) {
 
       <div className="manual-body">
         {tab === "Memory" && <MemoryManual />}
-        {tab === "Simon" && <SimonManual />}
-        {tab === "Hold" && <HoldManual />}
+        {tab === "Simon" && <SimonManual maxStages={simonMaxStages} />}
+        {tab === "Hold" && <HoldManual thresholdMs={holdThresholdMs} />}
         {tab === "Wires" && <WiresManual />}
       </div>
     </div>
@@ -108,28 +118,30 @@ function MemoryManual() {
   );
 }
 
-function SimonManual() {
+function SimonManual({ maxStages }: { maxStages: number }) {
   return (
     <div className="manual-section">
       <ol className="manual-steps">
         <li>Ask the defuser: does the bomb's serial number contain a vowel (A, E, I, O, U)?</li>
-        <li>Check the current strike count (0 or 1).</li>
+        <li>Check the current strike count (0, 1, or 2+).</li>
         <li>When a color flashes, look it up below and call out the matching button.</li>
       </ol>
 
       <table className="manual-table">
         <thead><tr><th>Serial</th><th>Strikes</th><th>RED</th><th>BLUE</th><th>GREEN</th><th>YELLOW</th></tr></thead>
         <tbody>
-          <tr><td rowSpan={2}>Has a vowel</td><td>0</td><td>Button 2</td><td>Button 1</td><td>Button 4</td><td>Button 3</td></tr>
+          <tr><td rowSpan={3}>Has a vowel</td><td>0</td><td>Button 2</td><td>Button 1</td><td>Button 4</td><td>Button 3</td></tr>
           <tr><td>1</td><td>Button 4</td><td>Button 3</td><td>Button 2</td><td>Button 1</td></tr>
-          <tr><td rowSpan={2}>No vowel</td><td>0</td><td>Button 2</td><td>Button 4</td><td>Button 3</td><td>Button 1</td></tr>
+          <tr><td>2+</td><td>Button 3</td><td>Button 1</td><td>Button 4</td><td>Button 2</td></tr>
+          <tr><td rowSpan={3}>No vowel</td><td>0</td><td>Button 2</td><td>Button 4</td><td>Button 3</td><td>Button 1</td></tr>
           <tr><td>1</td><td>Button 1</td><td>Button 2</td><td>Button 4</td><td>Button 3</td></tr>
+          <tr><td>2+</td><td>Button 4</td><td>Button 3</td><td>Button 2</td><td>Button 1</td></tr>
         </tbody>
       </table>
 
       <p className="manual-note">
         The sequence replays from the start and grows by one flash each round the defuser gets
-        right, up to 5 flashes total.
+        right, up to {maxStages} flashes total.
       </p>
 
       <Example>
@@ -140,7 +152,8 @@ function SimonManual() {
   );
 }
 
-function HoldManual() {
+function HoldManual({ thresholdMs }: { thresholdMs: number }) {
+  const thresholdSeconds = (thresholdMs / 1000).toFixed(1).replace(/\.0$/, "");
   return (
     <div className="manual-section">
       <p className="manual-intro">Look at the button's color and label, then apply the first matching rule:</p>
@@ -155,7 +168,7 @@ function HoldManual() {
       </ol>
 
       <p className="manual-note">
-        <strong>TAP</strong> = press and release quickly (under ~0.7s). <strong>HOLD</strong> =
+        <strong>TAP</strong> = press and release quickly (under ~{thresholdSeconds}s). <strong>HOLD</strong> =
         keep holding until a colored strip lights up on the countdown timer, then release when
         the timer displays:
       </p>

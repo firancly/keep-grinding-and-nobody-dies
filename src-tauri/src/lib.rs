@@ -8,10 +8,28 @@ mod view;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use rand::RngExt;
 use tauri::{AppHandle, Emitter, Manager};
 
 use commands::EngineState;
 use engine::GameState;
+use relay::RestartToken;
+
+/// Generates a random 128-bit hex token gating the relay's POST /restart
+/// route - without this, anyone on the same LAN/Wi-Fi as the laptop could
+/// restart the game mid-run (the relay has to bind 0.0.0.0 so the tablet
+/// can reach it, which also makes it reachable by every other device on
+/// the network). Printed to the terminal on startup for the person running
+/// the relay to use, e.g. `curl -X POST "http://<ip>:4000/restart?token=..."`.
+fn generate_restart_token() -> String {
+    let mut rng = rand::rng();
+    (0..32)
+        .map(|_| {
+            let nibble = rng.random_range(0..16u8);
+            std::char::from_digit(nibble as u32, 16).unwrap()
+        })
+        .collect()
+}
 
 const RECONNECT_INTERVAL: Duration = Duration::from_secs(2);
 const DISPLAY_RESEND_INTERVAL: Duration = Duration::from_millis(1000);
@@ -140,6 +158,13 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             app.manage(EngineState(Mutex::new(GameState::new())));
+
+            let restart_token = generate_restart_token();
+            println!(
+                "Restart token (required for POST /restart): {restart_token}\n  \
+                 e.g. curl -X POST \"http://<laptop-ip>:4000/restart?token={restart_token}\""
+            );
+            app.manage(RestartToken(restart_token));
 
             let engine_handle = app.handle().clone();
             std::thread::spawn(move || run_engine_loop(engine_handle));

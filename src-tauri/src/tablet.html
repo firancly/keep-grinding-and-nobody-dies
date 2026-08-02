@@ -1148,7 +1148,7 @@
           resultScreen.innerHTML =
             view.phase === "Defused"
               ? `<div class="result-title">DEFUSED</div><div class="result-detail">All four modules solved with ${fmt(view.timer_ms)} remaining.</div>`
-              : `<div class="result-title">BOOM</div><div class="result-detail">Second mistake or time expired.</div>`;
+              : `<div class="result-title">BOOM</div><div class="result-detail">Ran out of attempts or time expired.</div>`;
           return;
         }
         resultScreen.classList.remove("show");

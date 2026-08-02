@@ -17,6 +17,10 @@ export interface DefuserView {
   // while idle/defused/exploded. Modules before this index are solved;
   // modules after it haven't started yet (placeholder data only).
   active_module_index: number | null;
+  // Echoes game_config.toml so the manual can describe them accurately
+  // instead of hardcoding numbers that go stale when config changes.
+  hold_threshold_ms: number;
+  simon_max_stages: number;
 }
 
 export type ModuleState = WiresModule | SimonModule | MemoryModule | HoldModule;

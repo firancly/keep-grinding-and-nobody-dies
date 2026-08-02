@@ -26,6 +26,11 @@ pub struct DefuserView {
     /// modules after it haven't been started yet (their fields still hold
     /// placeholder defaults, not a real puzzle instance).
     pub active_module_index: Option<usize>,
+    /// Echoes game_config.toml's `hold_threshold_ms`/`simon_stages` so the
+    /// expert-facing manual can describe them accurately instead of
+    /// hardcoding numbers that silently go stale whenever config changes.
+    pub hold_threshold_ms: u32,
+    pub simon_max_stages: u8,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq)]
@@ -135,10 +140,14 @@ pub fn build_view(state: &GameState, io: &IoSnapshot, now: Instant) -> DefuserVi
             .active_until
             .map(|until| until.saturating_duration_since(now).as_millis() as u32)
             .unwrap_or(0),
+        // Relative, not absolute - the tablet loads this page from
+        // http://<laptop-ip>:4000/, and a hardcoded "localhost" here would
+        // resolve to the tablet itself instead of the laptop, breaking
+        // video playback on any device but the laptop.
         video_url: state
             .events
             .jumpscare_video_index
-            .map(|index| format!("http://localhost:4000/jumpscare-video/{index}")),
+            .map(|index| format!("/jumpscare-video/{index}")),
     });
 
     let active_module_index =
@@ -152,7 +161,7 @@ pub fn build_view(state: &GameState, io: &IoSnapshot, now: Instant) -> DefuserVi
         phase: state.phase,
         timer_ms: state.remaining_ms.max(0),
         strikes: state.mistakes,
-        max_strikes: 2,
+        max_strikes: crate::config::get().game.attempts,
         serial: state.serial.clone(),
         batteries: state.batteries,
         car: state.car,
@@ -160,6 +169,8 @@ pub fn build_view(state: &GameState, io: &IoSnapshot, now: Instant) -> DefuserVi
         modules,
         active_event,
         active_module_index,
+        hold_threshold_ms: crate::config::get().game.hold_threshold_ms,
+        simon_max_stages: crate::config::get().game.simon_stages,
     }
 }
 

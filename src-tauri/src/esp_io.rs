@@ -81,9 +81,36 @@ fn parse_snapshot_line(line: &str) -> Result<IoSnapshot, String> {
     })
 }
 
+/// Substrings (lowercase) of the USB manufacturer/product strings reported
+/// by the handful of USB-serial bridge chips ESP32 dev boards commonly use.
+/// Used only to break ties when more than one USB serial device is plugged
+/// in at once - a common state at a hardware event (a spare Arduino, a
+/// USB-to-serial adapter, etc. sharing the laptop with the actual bomb).
+const KNOWN_ESP32_BRIDGE_HINTS: &[&str] = &[
+    "cp210", "silicon labs", "ch340", "ch9102", "wch.cn", "wch", "ftdi", "esp32", "espressif",
+];
+
+fn looks_like_esp32_bridge(port: &serialport::SerialPortInfo) -> bool {
+    let serialport::SerialPortType::UsbPort(info) = &port.port_type else {
+        return false;
+    };
+
+    [&info.manufacturer, &info.product]
+        .into_iter()
+        .flatten()
+        .any(|text| {
+            let text = text.to_lowercase();
+            KNOWN_ESP32_BRIDGE_HINTS.iter().any(|hint| text.contains(hint))
+        })
+}
+
 /// Finds the ESP32's COM port. Prefers the `ESP32_SERIAL_PORT` environment
 /// variable if set; otherwise auto-selects when exactly one USB serial
-/// device is plugged in.
+/// device is plugged in. If several are plugged in at once, narrows to
+/// those whose USB manufacturer/product string matches a known ESP32
+/// USB-serial bridge chip (CP210x, CH340/CH9102, FTDI, ...) and auto-selects
+/// if that narrows it down to exactly one - only falling back to an error
+/// if it's still ambiguous.
 fn find_port() -> Result<String, String> {
     if let Ok(explicit) = env::var("ESP32_SERIAL_PORT") {
         return Ok(explicit);
@@ -97,23 +124,32 @@ fn find_port() -> Result<String, String> {
         .filter(|port| matches!(port.port_type, serialport::SerialPortType::UsbPort(_)))
         .collect();
 
-    match usb_ports.as_slice() {
-        [single] => Ok(single.port_name.clone()),
-        [] => Err(
+    if let [single] = usb_ports.as_slice() {
+        return Ok(single.port_name.clone());
+    }
+
+    if usb_ports.is_empty() {
+        return Err(
             "No USB serial ports found. Plug in the ESP32, or set the ESP32_SERIAL_PORT \
              environment variable to the correct COM port (check Device Manager)."
                 .to_string(),
-        ),
-        multiple => Err(format!(
-            "Multiple USB serial ports found ({}). Set the ESP32_SERIAL_PORT environment \
-             variable to pick the right one.",
-            multiple
-                .iter()
-                .map(|port| port.port_name.clone())
-                .collect::<Vec<_>>()
-                .join(", ")
-        )),
+        );
     }
+
+    let likely: Vec<_> = usb_ports.iter().filter(|port| looks_like_esp32_bridge(port)).collect();
+    if let [single] = likely.as_slice() {
+        return Ok(single.port_name.clone());
+    }
+
+    Err(format!(
+        "Multiple USB serial ports found ({}). Set the ESP32_SERIAL_PORT environment \
+         variable to pick the right one.",
+        usb_ports
+            .iter()
+            .map(|port| port.port_name.clone())
+            .collect::<Vec<_>>()
+            .join(", ")
+    ))
 }
 
 pub struct EspLink {

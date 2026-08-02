@@ -18,8 +18,14 @@
 # Oyunu kolaylastirmak icin buyut, zorlastirmak icin kucult.
 total_time_ms = 240000
 
-# Ilk yanlis yapildiginda geri sayim suresinden dusulen ceza (milisaniye).
-# 20000 = 20 saniye. Ikinci yanlis her zaman oyunu direkt bitirir (bomba patlar).
+# Bomba patlamadan once kac hataya izin verildigi. Son haktan once yapilan
+# her yanlis asagidaki first_mistake_penalty_ms kadar sureyi siler; son hak
+# da (orn. attempts=5 ise 5. yanlis) bombayi direkt patlatir.
+attempts = 5
+
+# Bir yanlis yapildiginda geri sayim suresinden dusulen ceza (milisaniye).
+# 20000 = 20 saniye. Yukaridaki attempts sayisina ulasan yanlis her zaman
+# oyunu direkt bitirir (bomba patlar), ceza uygulanmadan.
 first_mistake_penalty_ms = 20000
 
 # "The Button" (Dugme) modulunde, dugmeye basip birakma arasindaki sure
@@ -84,6 +90,4 @@ siren_lights = 10000
 #   "C:\\Users\\Lenovo\\Videos\\jumpscare2.mp4",
 #   "C:\\Users\\Lenovo\\Videos\\jumpscare3.mp4",
 # ]
-video_paths = [
-	"C:\\Users\\Lenovo\\Downloads\\jeff-the-killer-scream-face-ytmp4.savetube.vip.mp4"
-]
+video_paths = []

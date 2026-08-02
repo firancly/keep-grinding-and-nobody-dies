@@ -77,11 +77,13 @@ The app runs a small extra server on **port 4000** on your laptop that any devic
 
 4. Raw JSON is still available directly at `http://<laptop-ip>:4000/state`, if you ever need to poll it from something other than a browser.
 
-5. To trigger a restart from any device, send a POST request to:
+5. To trigger a restart, send a POST request with the restart token that was printed to the laptop's terminal when `pnpm tauri dev` started (look for a line starting with "Restart token"):
    ```
-   http://<laptop-ip>:4000/restart
+   http://<laptop-ip>:4000/restart?token=<the-token>
    ```
-   (from a terminal: `curl -X POST http://<laptop-ip>:4000/restart`)
+   (from a terminal: `curl -X POST "http://<laptop-ip>:4000/restart?token=<the-token>"`)
+
+   The token changes every time the app restarts, and requests without the correct token are rejected — otherwise anyone else on the same Wi-Fi network could restart the game mid-run.
 
 ### One-time firewall step for port 4000
 
@@ -113,7 +115,7 @@ New-NetFirewallRule -DisplayName "Vite Dev 1420" -Direction Inbound -LocalPort 1
 
 All the "how hard is this game" numbers live in **`game_config.toml`** at the project root — no code editing needed. Open it in any text editor, change a value, save, and **restart `pnpm tauri dev`** (config is only read once at startup, not live-reloaded).
 
-- `[game]` — `total_time_ms` (bomb timer), `first_mistake_penalty_ms` (time lost on the 1st mistake), `hold_threshold_ms` (tap vs. hold cutoff for The Button), `simon_stages` (how long Simon Says grows).
+- `[game]` — `total_time_ms` (bomb timer), `attempts` (how many mistakes are allowed before the bomb explodes), `first_mistake_penalty_ms` (time lost on each mistake before the last one), `hold_threshold_ms` (tap vs. hold cutoff for The Button), `simon_stages` (how long Simon Says grows).
 - `[events]` — `interval_ms` controls how often a random sabotage event is attempted (lower = more chaotic). `[events.duration_ms]` has a per-event duration in milliseconds (Dyslexia, UpsideDown, BlueScreen, TurkAttack, Jumpscare, MirrorMode, StaticGlitch, SirenLights).
 - `[events.jumpscare]` → `video_paths` — up to 3 file paths to video files. When the Jumpscare event fires, one is picked at random and played fullscreen with sound on both screens. Leave the list empty (`video_paths = []`) to keep the built-in CSS monster-face + synthesized scream instead — nothing breaks either way.
 
@@ -128,4 +130,4 @@ Every setting in the file has a comment above it explaining what it does. If the
 - **Nothing happens when pressing Button 1** — confirm the ESP32 is plugged in over USB and `pnpm tauri dev` is actually running (check the terminal for "Connected to ESP32 on COM...").
 - **Terminal repeats `Waiting for ESP32: ...` and never connects** — usually means either the USB cable isn't plugged in / the board isn't powered, the firmware isn't flashed, or auto-detect picked the wrong COM port (or found none/multiple). Check Device Manager → Ports (COM & LPT) for the ESP32's port name, and set it explicitly with `ESP32_SERIAL_PORT` (see section 3) if needed.
 - **Terminal repeats `ESP32 serial error (...): ...`, then "Reconnecting to ESP32..."** — the cable got unplugged, the board reset, or Windows momentarily dropped the COM port (common after a USB power-saving suspend). It auto-reconnects on its own every ~2 seconds once the port is available again — no restart needed. If it keeps happening, check Device Manager → the ESP32's USB-serial device → Properties → Power Management → uncheck "Allow the computer to turn off this device to save power".
-- **"Multiple USB serial ports found" error on startup** — you have more than one USB-serial device plugged in (another Arduino, a USB-to-serial adapter, etc). Set `ESP32_SERIAL_PORT` explicitly to the right one (section 3).
+- **"Multiple USB serial ports found" error on startup** — you have more than one USB-serial device plugged in (another Arduino, a USB-to-serial adapter, etc). Auto-detect already tries to narrow this down by USB chip type (CP210x/CH340/FTDI/etc.) and only errors if it's still ambiguous after that. Set `ESP32_SERIAL_PORT` explicitly to the right one (section 3) to resolve it.

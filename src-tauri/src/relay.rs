@@ -8,9 +8,16 @@ use crate::commands::EngineState;
 use crate::engine::GameState;
 
 // Lets any device on the LAN (e.g. a tablet browser, which has no Tauri IPC
-// bridge) load the standalone defuser page, fetch the latest game state, or
-// trigger a restart directly.
+// bridge) load the standalone defuser page or fetch the latest game state.
+// Restarting additionally requires RestartToken (see below) - everything
+// else here is intentionally readable by anyone on the LAN, since it's only
+// ever non-sensitive bomb-display data.
 const RELAY_ADDR: &str = "0.0.0.0:4000";
+
+/// Random per-run secret gating POST /restart (generated in lib.rs at
+/// startup). Without this, binding 0.0.0.0 so the tablet can reach the relay
+/// also lets any other device on the same LAN restart the game mid-run.
+pub struct RestartToken(pub String);
 
 // The defuser-facing fullscreen page for the player physically at the bomb.
 // The main Tauri window is the expert's view; this is served separately so
@@ -53,10 +60,13 @@ async fn handle_connection(stream: TcpStream, handle: AppHandle) -> std::io::Res
 
     let mut parts = request_line.split_whitespace();
     let method = parts.next().unwrap_or("");
+    let raw_target = parts.next().unwrap_or("");
+    let mut target_parts = raw_target.splitn(2, '?');
     // Strip any query string (e.g. "/state?t=169..." from the tablet page's
     // cache-busting poll) - otherwise it never matches the exact-string
     // routes below and every poll silently 404s.
-    let path = parts.next().unwrap_or("").split('?').next().unwrap_or("");
+    let path = target_parts.next().unwrap_or("");
+    let query = target_parts.next().unwrap_or("");
 
     let mut stream = reader.into_inner();
 
@@ -75,6 +85,14 @@ async fn handle_connection(stream: TcpStream, handle: AppHandle) -> std::io::Res
             write_response(&mut stream, 200, "OK", "application/json", &body).await
         }
         ("POST", "/restart") => {
+            let expected_token = &handle.state::<RestartToken>().0;
+            let provided_token = query_param(query, "token");
+
+            if provided_token.as_deref() != Some(expected_token.as_str()) {
+                let body = serde_json::json!({ "error": "missing or invalid token" }).to_string();
+                return write_response(&mut stream, 401, "Unauthorized", "application/json", &body).await;
+            }
+
             let engine_state = handle.state::<EngineState>();
             *engine_state.0.lock().unwrap() = GameState::new();
             let body = serde_json::json!({ "ok": true }).to_string();
@@ -118,6 +136,19 @@ async fn serve_jumpscare_video(stream: &mut TcpStream, index_str: &str) -> std::
     }
 }
 
+/// Extracts a single query-string parameter's raw value (no percent-decoding
+/// - the token is a plain hex string, so none is needed).
+fn query_param<'a>(query: &'a str, name: &str) -> Option<&'a str> {
+    query.split('&').find_map(|pair| {
+        let mut kv = pair.splitn(2, '=');
+        if kv.next()? == name {
+            kv.next()
+        } else {
+            None
+        }
+    })
+}
+
 async fn write_response(
     stream: &mut TcpStream,
     status: u16,
@@ -125,10 +156,14 @@ async fn write_response(
     content_type: &str,
     body: &str,
 ) -> std::io::Result<()> {
+    // No Access-Control-Allow-Origin header: every page that calls this
+    // relay (tablet.html) is served BY this same relay, so it's always a
+    // same-origin request. A wildcard here would let any website a browser
+    // on the LAN happens to have open make cross-origin requests into the
+    // relay too - unnecessary and worth not having.
     let response = format!(
         "HTTP/1.1 {status} {status_text}\r\n\
          Content-Type: {content_type}\r\n\
-         Access-Control-Allow-Origin: *\r\n\
          Cache-Control: no-store\r\n\
          Content-Length: {}\r\n\
          Connection: close\r\n\r\n\
@@ -152,7 +187,6 @@ async fn write_binary_response(
     let header = format!(
         "HTTP/1.1 {status} {status_text}\r\n\
          Content-Type: {content_type}\r\n\
-         Access-Control-Allow-Origin: *\r\n\
          Cache-Control: no-store\r\n\
          Content-Length: {}\r\n\
          Connection: close\r\n\r\n",

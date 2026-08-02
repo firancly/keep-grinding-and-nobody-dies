@@ -21,6 +21,10 @@ pub struct GameConfig {
 #[serde(default)]
 pub struct GameSettings {
     pub total_time_ms: i64,
+    /// How many mistakes the defuser can make before the bomb explodes.
+    /// Every mistake before the last one costs `first_mistake_penalty_ms`;
+    /// the attempts-th one ends the game immediately.
+    pub attempts: u8,
     pub first_mistake_penalty_ms: i64,
     pub hold_threshold_ms: u32,
     pub simon_stages: u8,
@@ -30,6 +34,7 @@ impl Default for GameSettings {
     fn default() -> Self {
         GameSettings {
             total_time_ms: 180_000,
+            attempts: 2,
             first_mistake_penalty_ms: 20_000,
             hold_threshold_ms: 700,
             simon_stages: 5,
@@ -130,7 +135,7 @@ mod tests {
         let config: GameConfig =
             toml::from_str(&text).expect("game_config.toml should be valid TOML matching GameConfig");
 
-        assert_eq!(config.game.total_time_ms, 180_000);
+        assert_eq!(config.game.total_time_ms, 240_000);
         assert_eq!(config.events.jumpscare.video_paths.len(), 0);
     }
 }

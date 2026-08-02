@@ -227,12 +227,13 @@ pub(crate) fn register_mistake(
 ) {
     state.mistakes += 1;
 
-    if state.mistakes >= 2 {
-        lose_game(state, &format!("Second mistake: {reason}"));
+    if state.mistakes >= crate::config::get().game.attempts {
+        lose_game(state, &format!("Out of attempts: {reason}"));
         return;
     }
 
-    state.remaining_ms -= crate::config::get().game.first_mistake_penalty_ms;
+    let penalty_ms = crate::config::get().game.first_mistake_penalty_ms;
+    state.remaining_ms -= penalty_ms;
 
     if state.remaining_ms <= 0 {
         state.remaining_ms = 0;
@@ -245,7 +246,7 @@ pub(crate) fn register_mistake(
         retry_action,
         1500,
         "SECOND CHANCE",
-        format!("{reason} | 20 seconds removed"),
+        format!("{reason} | {} seconds removed", penalty_ms / 1000),
         now,
     );
 }

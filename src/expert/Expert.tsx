@@ -85,7 +85,11 @@ export function Expert() {
       <div className="casing">
         <ExpertHeader view={view} />
         <ModuleStepper modules={view.modules} activeIndex={view.active_module_index} />
-        <Manual activeKind={activeModule?.kind ?? null} />
+        <Manual
+          activeKind={activeModule?.kind ?? null}
+          holdThresholdMs={view.hold_threshold_ms}
+          simonMaxStages={view.simon_max_stages}
+        />
       </div>
     </div>
   );
