@@ -37,6 +37,25 @@ first_mistake_penalty_ms = 20000
 # (basili tutma) sayilir. Milisaniye cinsinden.
 hold_threshold_ms = 600
 
+# Bir modulun ICINDE hata yapilinca o ana kadarki ilerlemeye ne olacagi.
+# (Hak kaybi ve sure cezasi HER DURUMDA uygulanir - burasi sadece modul
+# ici ilerlemeyi belirler.) Asamali moduller icin gecerlidir: Memory ve
+# Simon Says.
+#
+#   "advance"        = VARSAYILAN. Yanlis yapilan asama da gecilmis
+#                      sayilir, oyun bir sonraki asamadan devam eder.
+#                      Hicbir sey bastan yapilmaz - grup bir modulde
+#                      sonsuza kadar takilip kalamaz.
+#   "retry_stage"    = Onceki asamalar korunur, sadece hata yapilan asama
+#                      yeniden oynanir.
+#   "restart_module" = Eski (en zor) davranis: modul komple sifirlanir,
+#                      tum ilerleme silinir.
+#
+# NOT: Simon Says'de her hata, renk -> dugme esleme tablosunun SATIRINI da
+# degistirir (uzmanin kilavuzundaki "Strikes" sutunu). Yani ilerleme
+# korunsa bile diziyi yeni satira gore tekrar okumak gerekir.
+mistake_behavior = "advance"
+
 # Simon Says modulunun kac asamaya kadar buyuyecegi (sira ne kadar uzayacak).
 # Varsayilan 5. Daha yuksek bir sayi verirsen (orn. 8) modul daha uzun ve
 # zor olur - dizi sinirsiz buyuyebiliyor, coksmeyeceginden emin olabilirsin.
@@ -44,13 +63,28 @@ simon_stages = 5
 
 
 [events]
-# Rastgele bir "sabotaj olayi" denemesi arasindaki sure (milisaniye).
-# KUCULTURSEN olaylar DAHA SIK gelir (oyun daha zor/kaotik olur).
-# BUYUTURSEN olaylar DAHA SEYREK gelir.
-# Not: her denemede olay mutlaka baslamayabilir (orn. Simon Says veya The
-# Button modulunde tam o an kritik bir islem yapiliyorsa olay ertelenir,
-# bir sonraki uygun ana kadar bekler).
-interval_ms = 15000
+# Iki sabotaj olayi ARASINDAKI SESSIZ SURE (milisaniye).
+#
+# ONEMLI: Bu sure, bir onceki olay BITTIKTEN sonra baslar (basladigi andan
+# degil). Yani olayin kendi suresi bu bekleme suresini yemez - 45000
+# yazarsan olaylar arasinda gercekten ~45 saniye sakinlik olur.
+#
+# KUCULTURSEN olaylar DAHA SIK gelir (daha kaotik).
+# BUYUTURSEN olaylar DAHA SEYREK gelir (daha sakin).
+#
+# Kaba hesap: 4 dakikalik bir oyunda 45000 ile ~4 olay gorursun.
+# Cok fazla geliyorsa 60000-90000 yap; daha kaotik istiyorsan 20000-30000.
+#
+# Not: sure dolsa bile olay kritik bir anda baslamaz (orn. Simon Says
+# diziyi oynatirken veya dugme basili tutulurken) - uygun ilk ana kadar
+# bekler.
+interval_ms = 45000
+
+# Yukaridaki sureye eklenen/cikarilan RASTGELELIK (milisaniye).
+# 15000 ise bekleme suresi 30-60 saniye arasinda degisir; boylece olaylar
+# saat gibi duzenli gelmez, tahmin edilemez olur.
+# 0 yazarsan sure her seferinde tam olarak interval_ms olur.
+interval_jitter_ms = 15000
 
 [events.duration_ms]
 # Her sabotaj olayinin ekranda ne kadar sure (milisaniye) kalacagi.
@@ -73,6 +107,26 @@ mirror_mode = 10000
 static_glitch = 5000
 # Kirmizi/mavi alarm isiklari yanip soner (polis isigi gibi).
 siren_lights = 10000
+
+[stimulation]
+# "Stimulasyon kosesi": tablet ekraninin sag alt kosesinde, oyun surerken
+# SESSIZ ve dongude oynayan kisa video klipleri (orn. kendi indirdigin
+# subway surfers / oyun videosu kayitlari). Birden fazla klip eklersen
+# TikTok gibi 12 saniyede bir otomatik olarak sonrakine "kaydirilir".
+#
+# Yol formati jumpscare'dekiyle ayni: bilgisayarindaki tam dosya yolu,
+# ters slash'lar CIFT yazilir:
+#   "C:\\Users\\Lenovo\\Videos\\subway1.mp4"
+#
+# Bos liste ([]) = kose hic gorunmez. Videolar her zaman sessizdir ve
+# dokunuslari engellemez (bombanin ustune tiklamayi bozamaz).
+#
+# Ornek:
+# video_paths = [
+#   "C:\\Users\\Lenovo\\Videos\\subway1.mp4",
+#   "C:\\Users\\Lenovo\\Videos\\minecraft-parkour.mp4",
+# ]
+video_paths = []
 
 [events.jumpscare]
 # Jumpscare olayi tetiklendiginde EKRANDA OYNATILACAK video dosyalarinin

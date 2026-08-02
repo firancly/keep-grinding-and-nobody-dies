@@ -34,6 +34,15 @@ const ORDINAL_WORDS: [[&str; 4]; 3] = [
 ];
 pub const CLASS_NAME: [&str; 3] = ["ALPHA", "BETA", "OMEGA"];
 
+/// Physical wire colors, in the same order as `WIRE_PINS` in
+/// keep_grinding_ful_game.ino (wire 1 = GPIO25 = blue, ... wire 4 =
+/// GPIO17 = yellow) - i.e. index N here is the same wire as `io.wires_cut[N]`.
+pub const WIRE_COLORS: [&str; 4] = ["blue", "white", "black", "yellow"];
+
+pub fn wire_color(index: u8) -> &'static str {
+    WIRE_COLORS[index as usize]
+}
+
 pub fn action_word(set: u8) -> &'static str {
     ACTION_WORDS[set as usize]
 }

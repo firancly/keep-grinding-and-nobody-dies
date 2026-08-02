@@ -85,6 +85,27 @@ The app runs a small extra server on **port 4000** on your laptop that any devic
 
    The token changes every time the app restarts, and requests without the correct token are rejected — otherwise anyone else on the same Wi-Fi network could restart the game mid-run.
 
+### The operator panel (for demos and showcases)
+
+If a run goes sideways in front of an audience, open the **operator panel** on your phone or a second browser tab:
+
+```
+http://<laptop-ip>:4000/admin?token=<the-token>
+```
+
+Same token as the restart route (printed in the laptop's terminal at startup) — paste it into the URL once and the panel remembers it. The defuser's page never links to or shows this panel.
+
+What it can do, live, mid-run:
+
+- **Force start** a game without pressing physical Button 1, **pause/resume** (the countdown and every timer freeze; the defuser's screen says PAUSED), and **restart**.
+- **Timer**: add or subtract time, or set it outright. Nudges can never take the timer to zero and detonate the bomb by accident.
+- **Strikes**: set the count to any value below the fatal one — the panel can't explode the bomb by setting strikes.
+- **Modules**: instantly solve the current module, or jump straight to module 1–4 (earlier ones count as solved). Useful for demoing one specific puzzle.
+- **Sabotage events**: a master ON/OFF switch for the random ones (turning them off is the safe setting for a showcase), plus a button to fire any single event on demand, plus "clear active". A hand-picked event still fires even with the master switch off.
+- **Force ending**: end the run as DEFUSED or BOOM for a clean finish.
+
+The panel shows live phase/time/strikes/module/event state at the top, so it doubles as a status board while you present.
+
 ### One-time firewall step for port 4000
 
 Windows Firewall blocks incoming connections by default. Run this **once**, in an **Administrator** PowerShell window:
@@ -116,7 +137,8 @@ New-NetFirewallRule -DisplayName "Vite Dev 1420" -Direction Inbound -LocalPort 1
 All the "how hard is this game" numbers live in **`game_config.toml`** at the project root — no code editing needed. Open it in any text editor, change a value, save, and **restart `pnpm tauri dev`** (config is only read once at startup, not live-reloaded).
 
 - `[game]` — `total_time_ms` (bomb timer), `attempts` (how many mistakes are allowed before the bomb explodes), `first_mistake_penalty_ms` (time lost on each mistake before the last one), `hold_threshold_ms` (tap vs. hold cutoff for The Button), `simon_stages` (how long Simon Says grows).
-- `[events]` — `interval_ms` controls how often a random sabotage event is attempted (lower = more chaotic). `[events.duration_ms]` has a per-event duration in milliseconds (Dyslexia, UpsideDown, BlueScreen, TurkAttack, Jumpscare, MirrorMode, StaticGlitch, SirenLights).
+- `[game]` → `mistake_behavior` — what a wrong answer costs *inside* a module. `"advance"` (default) counts the failed stage and moves on, so nobody ever loses progress; `"retry_stage"` replays just that stage; `"restart_module"` wipes the module. The strike and time penalty apply either way.
+- `[events]` — `interval_ms` is the **quiet gap between events, measured from when the previous one ends**, and `interval_jitter_ms` randomises it by ± that much (so 45000 ± 15000 = a 30–60s calm). Bigger = calmer. `[events.duration_ms]` has a per-event duration in milliseconds (Dyslexia, UpsideDown, BlueScreen, TurkAttack, Jumpscare, MirrorMode, StaticGlitch, SirenLights).
 - `[events.jumpscare]` → `video_paths` — up to 3 file paths to video files. When the Jumpscare event fires, one is picked at random and played fullscreen with sound on both screens. Leave the list empty (`video_paths = []`) to keep the built-in CSS monster-face + synthesized scream instead — nothing breaks either way.
 
 Every setting in the file has a comment above it explaining what it does. If the file is missing, deleted, or has a typo that breaks TOML parsing, the app doesn't crash — it just falls back to built-in defaults and prints a note to the terminal.

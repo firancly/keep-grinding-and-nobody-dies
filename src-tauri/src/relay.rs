@@ -24,6 +24,15 @@ pub struct RestartToken(pub String);
 // a tablet browser (no Tauri IPC bridge) can poll /state on its own.
 const TABLET_PAGE: &str = include_str!("tablet.html");
 
+// The operator's "break glass" panel (see engine::admin). Served only to
+// whoever holds the run's restart token, and never linked from the
+// defuser's page - it exists so a live demo can be steered out of trouble.
+const ADMIN_PAGE: &str = include_str!("admin.html");
+
+/// Swapped for the run's real token when the panel is served to the
+/// laptop itself, and for an empty string for every other device.
+const TOKEN_PLACEHOLDER: &str = "__RESTART_TOKEN__";
+
 pub async fn run_relay_server(handle: AppHandle) {
     let listener = match TcpListener::bind(RELAY_ADDR).await {
         Ok(listener) => listener,
@@ -36,7 +45,7 @@ pub async fn run_relay_server(handle: AppHandle) {
     println!("Relay server listening on http://{RELAY_ADDR}");
 
     loop {
-        let (stream, _peer) = match listener.accept().await {
+        let (stream, peer) = match listener.accept().await {
             Ok(connection) => connection,
             Err(error) => {
                 eprintln!("Relay server accept error: {error}");
@@ -46,14 +55,18 @@ pub async fn run_relay_server(handle: AppHandle) {
 
         let handle = handle.clone();
         tokio::spawn(async move {
-            if let Err(error) = handle_connection(stream, handle).await {
+            if let Err(error) = handle_connection(stream, handle, peer).await {
                 eprintln!("Relay connection error: {error}");
             }
         });
     }
 }
 
-async fn handle_connection(stream: TcpStream, handle: AppHandle) -> std::io::Result<()> {
+async fn handle_connection(
+    stream: TcpStream,
+    handle: AppHandle,
+    peer: std::net::SocketAddr,
+) -> std::io::Result<()> {
     let mut reader = BufReader::new(stream);
     let mut request_line = String::new();
     reader.read_line(&mut request_line).await?;
@@ -71,7 +84,13 @@ async fn handle_connection(stream: TcpStream, handle: AppHandle) -> std::io::Res
     let mut stream = reader.into_inner();
 
     if let Some(index_str) = path.strip_prefix("/jumpscare-video/") {
-        return serve_jumpscare_video(&mut stream, index_str).await;
+        let paths = &crate::config::get().events.jumpscare.video_paths;
+        return serve_config_video(&mut stream, index_str, paths).await;
+    }
+
+    if let Some(index_str) = path.strip_prefix("/stim-video/") {
+        let paths = &crate::config::get().stimulation.video_paths;
+        return serve_config_video(&mut stream, index_str, paths).await;
     }
 
     match (method, path) {
@@ -83,6 +102,47 @@ async fn handle_connection(stream: TcpStream, handle: AppHandle) -> std::io::Res
             let view = engine_state.0.lock().unwrap().last_view.clone();
             let body = serde_json::to_string(&view).unwrap_or_else(|_| "null".to_string());
             write_response(&mut stream, 200, "OK", "application/json", &body).await
+        }
+        // The page itself carries no authority - every control on it POSTs
+        // to /admin/action with the token, which is where access is
+        // actually enforced. Serving the HTML unauthenticated keeps the
+        // "paste the URL with ?token=... on your phone" flow working.
+        //
+        // As a convenience, the token is baked into the page ONLY for
+        // requests coming from the laptop itself (loopback): that's the
+        // machine already printing the token to its own terminal, so it
+        // reveals nothing new, and it saves the operator retyping 32 hex
+        // characters mid-demo. Any other device on the LAN gets the page
+        // with an empty field and still has to supply the token.
+        ("GET", "/admin") => {
+            let token = if peer.ip().is_loopback() {
+                handle.state::<RestartToken>().0.clone()
+            } else {
+                String::new()
+            };
+            let page = ADMIN_PAGE.replace(TOKEN_PLACEHOLDER, &token);
+            write_response(&mut stream, 200, "OK", "text/html; charset=utf-8", &page).await
+        }
+        ("POST", "/admin/action") => {
+            let expected_token = &handle.state::<RestartToken>().0;
+            if query_param(query, "token") != Some(expected_token.as_str()) {
+                let body = serde_json::json!({ "error": "missing or invalid token" }).to_string();
+                return write_response(&mut stream, 401, "Unauthorized", "application/json", &body)
+                    .await;
+            }
+
+            let action = query_param(query, "action").unwrap_or("");
+            let value = query_param(query, "value").unwrap_or("");
+            let engine_state = handle.state::<EngineState>();
+            let applied = {
+                let mut state = engine_state.0.lock().unwrap();
+                apply_admin_action(&mut state, action, value)
+            };
+
+            let body = serde_json::json!({ "ok": applied, "action": action }).to_string();
+            let status = if applied { 200 } else { 400 };
+            let status_text = if applied { "OK" } else { "Bad Request" };
+            write_response(&mut stream, status, status_text, "application/json", &body).await
         }
         ("POST", "/restart") => {
             let expected_token = &handle.state::<RestartToken>().0;
@@ -105,16 +165,20 @@ async fn handle_connection(stream: TcpStream, handle: AppHandle) -> std::io::Res
     }
 }
 
-/// Serves the Nth configured jumpscare video file
-/// (game_config.toml -> events.jumpscare.video_paths) as raw bytes. Read
-/// from disk on every request (not embedded in the binary) so dropping in
-/// new video files doesn't need a rebuild.
-async fn serve_jumpscare_video(stream: &mut TcpStream, index_str: &str) -> std::io::Result<()> {
+/// Serves the Nth video file from a game_config.toml path list (jumpscare
+/// or stimulation clips) as raw bytes. Read from disk on every request
+/// (not embedded in the binary) so dropping in new video files doesn't
+/// need a rebuild.
+async fn serve_config_video(
+    stream: &mut TcpStream,
+    index_str: &str,
+    paths: &[String],
+) -> std::io::Result<()> {
     let Ok(index) = index_str.parse::<usize>() else {
         return write_response(stream, 400, "Bad Request", "text/plain", "invalid video index").await;
     };
 
-    let video_path = crate::config::get().events.jumpscare.video_paths.get(index).cloned();
+    let video_path = paths.get(index).cloned();
 
     let Some(video_path) = video_path else {
         return write_response(stream, 404, "Not Found", "text/plain", "no video configured at this index").await;
@@ -130,10 +194,51 @@ async fn serve_jumpscare_video(stream: &mut TcpStream, index_str: &str) -> std::
             write_binary_response(stream, 200, "OK", content_type, &bytes).await
         }
         Err(error) => {
-            eprintln!("Failed to read jumpscare video {video_path}: {error}");
+            eprintln!("Failed to read configured video {video_path}: {error}");
             write_response(stream, 500, "Internal Server Error", "text/plain", "failed to read video file").await
         }
     }
+}
+
+/// Maps one admin-panel control to its `engine::admin` call. Returns false
+/// for an unknown action or an unparseable value so the panel can show the
+/// operator that the click didn't land, rather than silently doing nothing.
+fn apply_admin_action(state: &mut GameState, action: &str, value: &str) -> bool {
+    use crate::engine::admin;
+    let now = std::time::Instant::now();
+
+    match action {
+        "start" => admin::force_start(state, now),
+        "restart" => *state = GameState::new(),
+        "pause" => admin::set_paused(state, true),
+        "resume" => admin::set_paused(state, false),
+        "add_time" => match value.parse::<i64>() {
+            Ok(delta_s) => admin::add_time_ms(state, delta_s * 1000),
+            Err(_) => return false,
+        },
+        "set_time" => match value.parse::<i64>() {
+            Ok(seconds) => admin::set_time_ms(state, seconds * 1000),
+            Err(_) => return false,
+        },
+        "set_strikes" => match value.parse::<u8>() {
+            Ok(strikes) => admin::set_strikes(state, strikes),
+            Err(_) => return false,
+        },
+        "solve_module" => admin::solve_current(state, now),
+        "jump_module" => match value.parse::<usize>() {
+            Ok(index) => admin::jump_to_module(state, index, now),
+            Err(_) => return false,
+        },
+        "trigger_event" => return admin::trigger_event(state, value, now),
+        "clear_event" => admin::clear_event(state),
+        "events_on" => admin::set_events_enabled(state, true),
+        "events_off" => admin::set_events_enabled(state, false),
+        "end_defused" => admin::end_game(state, true),
+        "end_exploded" => admin::end_game(state, false),
+        _ => return false,
+    }
+
+    true
 }
 
 /// Extracts a single query-string parameter's raw value (no percent-decoding
@@ -147,6 +252,119 @@ fn query_param<'a>(query: &'a str, name: &str) -> Option<&'a str> {
             None
         }
     })
+}
+
+#[cfg(test)]
+mod admin_action_tests {
+    use super::*;
+    use crate::engine::Phase;
+
+    fn running_game() -> GameState {
+        let mut state = GameState::new();
+        assert!(apply_admin_action(&mut state, "start", ""));
+        assert_eq!(state.phase, Phase::Running);
+        state
+    }
+
+    /// The panel auto-fills its token by string-substituting this
+    /// placeholder for loopback requests. If it were ever renamed on one
+    /// side only, the substitution would silently no-op and the operator
+    /// would be back to copying the token by hand.
+    #[test]
+    fn the_admin_page_carries_the_token_placeholder() {
+        assert!(
+            ADMIN_PAGE.contains(TOKEN_PLACEHOLDER),
+            "admin.html must contain {TOKEN_PLACEHOLDER} for token auto-fill to work"
+        );
+
+        let filled = ADMIN_PAGE.replace(TOKEN_PLACEHOLDER, "deadbeef");
+        assert!(filled.contains("deadbeef"));
+        assert!(
+            !filled.contains(TOKEN_PLACEHOLDER),
+            "every occurrence should be substituted"
+        );
+    }
+
+    #[test]
+    fn unknown_action_and_bad_values_are_rejected() {
+        let mut state = running_game();
+        assert!(!apply_admin_action(&mut state, "self_destruct", ""));
+        assert!(!apply_admin_action(&mut state, "add_time", "soon"));
+        assert!(!apply_admin_action(&mut state, "jump_module", "-1"));
+    }
+
+    #[test]
+    fn pause_and_resume_toggle_the_flag() {
+        let mut state = running_game();
+        assert!(apply_admin_action(&mut state, "pause", ""));
+        assert!(state.paused);
+        assert!(apply_admin_action(&mut state, "resume", ""));
+        assert!(!state.paused);
+    }
+
+    #[test]
+    fn timer_controls_never_detonate_the_bomb() {
+        let mut state = running_game();
+        apply_admin_action(&mut state, "set_time", "30");
+        assert_eq!(state.remaining_ms, 30_000);
+
+        // Subtracting past zero must clamp, not explode.
+        apply_admin_action(&mut state, "add_time", "-600");
+        assert!(state.remaining_ms > 0);
+        assert_eq!(state.phase, Phase::Running);
+    }
+
+    #[test]
+    fn strikes_clamp_below_the_fatal_count() {
+        let mut state = running_game();
+        let attempts = crate::config::get().game.attempts;
+
+        apply_admin_action(&mut state, "set_strikes", "1");
+        assert_eq!(state.mistakes, 1);
+
+        apply_admin_action(&mut state, "set_strikes", "255");
+        assert_eq!(state.mistakes, attempts - 1);
+        assert_eq!(state.phase, Phase::Running);
+    }
+
+    #[test]
+    fn jumping_marks_earlier_modules_solved_and_starts_the_target() {
+        let mut state = running_game();
+        assert!(apply_admin_action(&mut state, "jump_module", "2"));
+        assert_eq!(state.module_index, 2);
+        assert!(state.pending.is_none());
+    }
+
+    #[test]
+    fn event_controls_drive_the_master_switch() {
+        let mut state = running_game();
+
+        assert!(apply_admin_action(&mut state, "trigger_event", "Jumpscare"));
+        assert!(state.events.active.is_some());
+
+        assert!(apply_admin_action(&mut state, "clear_event", ""));
+        assert!(state.events.active.is_none());
+
+        assert!(!apply_admin_action(&mut state, "trigger_event", "NotAnEvent"));
+
+        // The master switch stops the *random* scheduler; a hand-picked
+        // event from the panel still fires.
+        assert!(apply_admin_action(&mut state, "events_off", ""));
+        assert!(!state.events_enabled);
+        assert!(apply_admin_action(&mut state, "trigger_event", "SirenLights"));
+        assert!(state.events.active.is_some());
+    }
+
+    #[test]
+    fn force_endings_set_the_terminal_phase() {
+        let mut defused = running_game();
+        apply_admin_action(&mut defused, "end_defused", "");
+        assert_eq!(defused.phase, Phase::Defused);
+
+        let mut exploded = running_game();
+        apply_admin_action(&mut exploded, "end_exploded", "");
+        assert_eq!(exploded.phase, Phase::Exploded);
+    }
 }
 
 async fn write_response(

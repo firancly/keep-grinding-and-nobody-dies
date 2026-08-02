@@ -1012,6 +1012,28 @@ body {
   }
 }
 
+.stim-corner {
+  border: 4px solid var(--craft-ink);
+  box-shadow: 6px 6px 0 var(--craft-ink);
+  transform: rotate(0.8deg);
+  background: var(--craft-ink);
+}
+.stim-corner::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  z-index: 3;
+  width: 58px;
+  height: 15px;
+  transform: translateX(-50%) rotate(-2.5deg);
+  background: var(--craft-tape);
+  border: 2px solid rgba(32, 37, 43, 0.18);
+}
+.stim-label {
+  font-family: ui-monospace, "Courier New", monospace;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -16,12 +16,6 @@ export interface DefuserView {
   simon_max_stages: number;
   status_title: string;
   status_detail: string;
-  // Relative URLs of the tablet's "stimulation corner" clips, served by the
-  // relay at /stim-video/<n>. Empty = corner disabled.
-  stim_video_urls: string[];
-  // Operator state, driven by the token-gated admin panel (/admin).
-  paused: boolean;
-  events_enabled: boolean;
 }
 
 export type ModuleState =

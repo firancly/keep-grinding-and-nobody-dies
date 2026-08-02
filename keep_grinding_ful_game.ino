@@ -26,10 +26,10 @@
     B4 -> GPIO33
 
   WIRES, each wired from GPIO through the removable wire to GND:
-    W1 -> GPIO25
-    W2 -> GPIO13
-    W3 -> GPIO16
-    W4 -> GPIO17
+    BLUE wire -> GPIO25
+    WHITE wire -> GPIO13
+    BLACK wire -> GPIO16
+    YELLOW wire -> GPIO17
 
   COUNTER:
     SDI / DIN -> GPIO32

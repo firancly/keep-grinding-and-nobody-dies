@@ -125,8 +125,10 @@ fn button_color_str(index: u8) -> &'static str {
 
 fn button_label_str(index: u8) -> &'static str {
     match index {
-        0 => "tap",
-        _ => "hold",
+        0 => "abort",
+        1 => "detonate",
+        2 => "hold",
+        _ => "press",
     }
 }
 
@@ -188,7 +190,7 @@ pub fn build_view(state: &GameState, io: &IoSnapshot, now: Instant) -> DefuserVi
         active_event,
         active_module_index,
         hold_threshold_ms: crate::config::get().game.hold_threshold_ms,
-        simon_max_stages: 3,
+        simon_max_stages: crate::config::get().game.simon_stages,
         status_title: state.status_title.clone(),
         status_detail: state.status_detail.clone(),
         stim_video_urls: (0..crate::config::get().stimulation.video_paths.len())
@@ -240,7 +242,11 @@ fn build_module(state: &GameState, io: &IoSnapshot, kind: ModuleKind, order_inde
             active_slot: state.button.active_slot,
             holding: state.button.is_down,
             strip_visible: state.button.strip_visible,
-            strip_color: None,
+            strip_color: if state.button.strip_visible {
+                Some(button_color_str(state.button.strip_color))
+            } else {
+                None
+            },
             solved,
         },
         ModuleKind::Wires => {

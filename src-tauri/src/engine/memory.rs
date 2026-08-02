@@ -3,6 +3,7 @@ use std::time::Instant;
 use rand::RngExt;
 
 use super::{register_mistake, solve_current_module, GameState, PendingAction};
+use crate::config::MistakeBehavior;
 use crate::esp_io::{ButtonEdge, EdgeKind};
 
 #[derive(Debug, Clone, Default)]
@@ -104,19 +105,61 @@ pub fn on_edge(state: &mut GameState, edge: &ButtonEdge, now: Instant) {
     let correct = correct_position(&state.memory);
 
     if i != correct {
-        register_mistake(state, "Wrong Memory position", PendingAction::MemoryReset, now);
+        // Under `advance`, the stage is credited using the button they
+        // ACTUALLY pressed, not the one they should have. Later stages'
+        // rules refer to "the position/label you pressed in stage N", and
+        // both the defuser and the expert watched the real press - so
+        // recording it is what keeps the manual truthful from here on.
+        if crate::config::get().game.mistake_behavior == MistakeBehavior::Advance {
+            record_press(state, i);
+        }
+
+        register_mistake(
+            state,
+            &format!("Wrong Memory position | {}", super::mistake_note()),
+            PendingAction::MemoryMistake,
+            now,
+        );
         return;
     }
 
-    let stage = state.memory.stage as usize;
-    state.memory.pressed_position[stage] = i;
-    state.memory.pressed_label[stage] = state.memory.labels[i as usize];
-    state.memory.stage += 1;
+    record_press(state, i);
 
     if state.memory.stage >= 5 {
         solve_current_module(state, now);
     } else {
         prepare_stage(state);
+    }
+}
+
+/// Banks the press for the current stage and moves the stage counter on.
+/// Guarded against running past the 5 recorded slots.
+fn record_press(state: &mut GameState, i: u8) {
+    let stage = state.memory.stage as usize;
+    if stage >= 5 {
+        return;
+    }
+
+    state.memory.pressed_position[stage] = i;
+    state.memory.pressed_label[stage] = state.memory.labels[i as usize];
+    state.memory.stage += 1;
+}
+
+/// Runs once the "SECOND CHANCE" beat after a wrong press has elapsed.
+pub fn resolve_mistake(state: &mut GameState, now: Instant) {
+    match crate::config::get().game.mistake_behavior {
+        // The press was already banked in `on_edge`; carry on (or finish
+        // the module if that was the fifth stage).
+        MistakeBehavior::Advance => {
+            if state.memory.stage >= 5 {
+                solve_current_module(state, now);
+            } else {
+                prepare_stage(state);
+            }
+        }
+        // Earlier stages survive - only this stage is dealt again.
+        MistakeBehavior::RetryStage => prepare_stage(state),
+        MistakeBehavior::RestartModule => reset(state),
     }
 }
 

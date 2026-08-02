@@ -164,7 +164,10 @@ pub fn run() {
 
             let restart_token = generate_restart_token();
             println!(
-                "Restart token (required for POST /restart): {restart_token}\n  \
+                "Operator panel:  http://localhost:4000/admin\n  \
+                 (opened on this laptop the token fills itself in - no copying needed)\n\
+                 From a phone:    http://<laptop-ip>:4000/admin?token={restart_token}\n\
+                 Restart token:   {restart_token}\n  \
                  e.g. curl -X POST \"http://<laptop-ip>:4000/restart?token={restart_token}\""
             );
             app.manage(RestartToken(restart_token));

@@ -1934,63 +1934,6 @@ body {
     animation-iteration-count: 1 !important;
   }
 }
-
-/* Mister Bombastik simplified-game patch */
-.badges {
-  display: none !important;
-}
-
-.wire-row.wire-blue .wire-line {
-  background: #3977ff !important;
-}
-.wire-row.wire-white .wire-line {
-  background: #f4f1e7 !important;
-}
-.wire-row.wire-black .wire-line {
-  background: #111318 !important;
-  outline: 1px solid #9ea6b3;
-}
-.wire-row.wire-yellow .wire-line {
-  background: #e5b936 !important;
-}
-.wire-row.wire-blue .wire-index { color: #79a3ff; }
-.wire-row.wire-white .wire-index { color: #f4f1e7; }
-.wire-row.wire-black .wire-index { color: #b9bec8; }
-.wire-row.wire-yellow .wire-index { color: #f3ce5b; }
-
-.simon {
-  display: grid;
-  gap: 12px;
-}
-.simon-instruction {
-  font-weight: 900;
-  letter-spacing: .08em;
-  text-align: center;
-}
-.simon-pad {
-  display: grid;
-  place-items: center;
-}
-.simon-pad b {
-  color: white;
-  font: 900 10px/1.15 ui-monospace, monospace;
-  text-align: center;
-  text-shadow: 1px 1px 0 #000;
-  pointer-events: none;
-}
-.simon-pad.yellow b {
-  color: #171717;
-  text-shadow: none;
-}
-
-.simplified-hold .hold-btn {
-  font-size: clamp(18px, 4vw, 34px);
-}
-.hold-strip.ready {
-  border-color: var(--ok) !important;
-  color: var(--ok) !important;
-  font-weight: 950;
-}
 </style>
 <!-- HANDMADE_PIXEL_THEME_END -->
 </head>
@@ -2172,7 +2115,7 @@ body {
         return (
           {
             Wires: "Alien Wires",
-            Simon: "Color Memory",
+            Simon: "Simon Says",
             Memory: "Memory",
             Hold: "The Button",
           }[kind] || kind
@@ -2180,17 +2123,15 @@ body {
       }
 
       function renderWires(mod) {
-        const wireColors = ["blue", "white", "black", "yellow"];
         const wires = mod.wires
-          .map((w) => {
-            const color = wireColors[w.index] || "unknown";
-            return `
-    <div class="wire-row wire-${color} ${w.cut ? "is-cut" : ""}">
-      <span class="wire-index">${color.toUpperCase()}</span>
+          .map(
+            (w) => `
+    <div class="wire-row ${w.cut ? "is-cut" : ""}">
+      <span class="wire-index">${w.index + 1}</span>
       <span class="wire"><span class="wire-line"></span>${w.cut ? '<span class="wire-gap"></span>' : ""}</span>
       <span class="wire-status">${w.cut ? "CUT" : "INTACT"}</span>
-    </div>`;
-          })
+    </div>`,
+          )
           .join("");
 
         const alien = mod.armed
@@ -2212,11 +2153,10 @@ body {
       // and the WATCH/YOUR TURN label flips exactly when input opens.
       function renderSimon(mod) {
         const colors = ["red", "blue", "green", "yellow"];
-        const names = ["1 · RED", "2 · BLUE", "3 · GREEN", "4 · YELLOW"];
         const pads = colors
           .map(
-            (color, index) =>
-              `<span class="simon-pad ${color} ${mod.lit === color ? "is-lit" : ""}" aria-label="${names[index]}"><b>${names[index]}</b></span>`,
+            (c) =>
+              `<span class="simon-pad ${c} ${mod.lit === c ? "is-lit" : ""}"></span>`,
           )
           .join("");
         const pips = mod.flash_sequence
@@ -2225,15 +2165,11 @@ body {
               `<span class="pip ${i < mod.input_len ? "is-done" : ""}"></span>`,
           )
           .join("");
-        const instruction =
+        const phase =
           mod.mode === "input"
-            ? "REPEAT THE SAME COLORS"
-            : "WATCH THE THREE COLORS";
-        return `<div class="simon">
-          <div class="simon-instruction">${instruction}</div>
-          <div class="simon-pads">${pads}</div>
-          <div class="simon-progress">${pips}</div>
-        </div>`;
+            ? '<div class="simon-phase is-input">Your turn — repeat it</div>'
+            : '<div class="simon-phase">Watch the sequence…</div>';
+        return `<div class="simon">${phase}<div class="simon-pads">${pads}</div><div class="simon-progress">${pips}</div></div>`;
       }
 
       function renderMemory(mod) {
@@ -2266,20 +2202,14 @@ body {
       }
 
       function renderHold(mod) {
-        const ready = mod.strip_visible
-          ? `<div class="hold-strip ready">READY — RELEASE NOW</div>`
+        const strip = mod.strip_visible
+          ? `<div class="hold-strip ${mod.strip_color}">STRIP · ${mod.strip_color.toUpperCase()}</div>`
           : "";
-        const status = mod.holding
-          ? mod.label === "hold"
-            ? "KEEP HOLDING"
-            : "RELEASE QUICKLY"
-          : `PRESS BUTTON ${mod.active_slot + 1}`;
-
-        return `<div class="hold simplified-hold">
-    <div class="hold-slot-indicator">USE PHYSICAL BUTTON ${mod.active_slot + 1}</div>
+        return `<div class="hold">
+    <div class="hold-slot-indicator">ACTIVE BUTTON · POS ${mod.active_slot + 1}</div>
     <button type="button" class="hold-btn ${mod.color} ${mod.holding ? "is-holding" : ""}" disabled>${mod.label.toUpperCase()}</button>
-    <div class="hold-status">${status}</div>
-    ${ready}
+    <div class="hold-status">${mod.holding ? "HOLDING…" : "release to arm"}</div>
+    ${strip}
   </div>`;
       }
 

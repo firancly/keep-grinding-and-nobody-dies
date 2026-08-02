@@ -110,12 +110,6 @@ function MemoryManual() {
           <tr><td>4</td><td>The current label from Stage 3</td></tr>
         </tbody>
       </table>
-
-      <p className="manual-note">
-        <strong>After a wrong press:</strong> the stage still counts and play moves to the next one
-        — the module never restarts. Rows that refer to a previous stage mean the button
-        <em>actually</em> pressed, including a wrong one.
-      </p>
     </div>
   );
 }

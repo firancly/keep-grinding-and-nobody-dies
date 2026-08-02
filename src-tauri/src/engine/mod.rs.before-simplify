@@ -37,13 +37,12 @@ pub enum ModuleKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PendingAction {
     NextModule,
-    /// A mistake in Memory, the one module with progress to lose. What it
-    /// costs is decided by `config.game.mistake_behavior` when it resolves
-    /// - see `memory::resolve_mistake`.
+    /// A mistake in a staged module. What it actually does to the player's
+    /// progress is decided by `config.game.mistake_behavior` when it
+    /// resolves - see `memory::resolve_mistake` / `simon::resolve_mistake`.
     MemoryMistake,
-    /// Colour Memory replays its sequence - after a correct round or a
-    /// wrong press alike, since the module is a single fixed-length
-    /// sequence with no per-stage progress to preserve.
+    SimonMistake,
+    /// Simon's normal between-stages replay after a *correct* stage.
     SimonReplay,
     ButtonRetry,
     WiresReset,
@@ -232,7 +231,7 @@ pub fn timer_display_value(remaining_ms: i64) -> u16 {
 pub(crate) fn module_name(kind: ModuleKind) -> &'static str {
     match kind {
         ModuleKind::Memory => "MEMORY",
-        ModuleKind::Simon => "COLOR MEMORY",
+        ModuleKind::Simon => "SIMON SAYS",
         ModuleKind::Button => "THE BUTTON",
         ModuleKind::Wires => "ALIEN WIRES",
     }
@@ -329,6 +328,7 @@ fn resolve_pending(state: &mut GameState, action: PendingAction, now: Instant) {
             }
         }
         PendingAction::MemoryMistake => memory::resolve_mistake(state, now),
+        PendingAction::SimonMistake => simon::resolve_mistake(state, now),
         PendingAction::SimonReplay => simon::reset_replay(state, now),
         PendingAction::ButtonRetry => button_module::retry(state),
         PendingAction::WiresReset => wires::reset(state),

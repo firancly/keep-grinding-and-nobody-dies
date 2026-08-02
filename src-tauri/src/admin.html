@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Keep Grinding — Operator Panel</title>
+    <style>
+      :root {
+        --bg: #0e0c1e;
+        --panel: #171233;
+        --panel-2: #1e1840;
+        --edge: #2c2555;
+        --ink: #ece9f7;
+        --muted: #8a85b8;
+        --gold: #c9a24b;
+        --danger: #e5484d;
+        --ok: #34d17a;
+      }
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body {
+        margin: 0;
+        padding: 14px;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Segoe UI", system-ui, sans-serif;
+        font-size: 15px;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 17px;
+        letter-spacing: 2px;
+        color: var(--gold);
+      }
+      .sub {
+        margin-bottom: 14px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* ---- Token gate ---- */
+      .token-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+      .token-hint {
+        margin-bottom: 14px;
+        min-height: 14px;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        color: var(--ok);
+      }
+      .token-row input {
+        flex: 1;
+        min-width: 0;
+        padding: 11px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--edge);
+        background: var(--panel);
+        color: var(--ink);
+        font-family: ui-monospace, monospace;
+        font-size: 13px;
+      }
+
+      /* ---- Live state readout ---- */
+      .state {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px;
+        margin-bottom: 14px;
+        border: 1px solid var(--edge);
+        border-radius: 12px;
+        background: var(--panel);
+      }
+      .chip {
+        padding: 6px 11px;
+        border-radius: 999px;
+        border: 1px solid var(--edge);
+        background: var(--panel-2);
+        font-size: 12px;
+        letter-spacing: 0.5px;
+      }
+      .chip b {
+        color: var(--gold);
+        font-family: ui-monospace, monospace;
+      }
+      .chip.is-paused {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .chip.is-alert {
+        border-color: var(--danger);
+        color: var(--danger);
+      }
+
+      section {
+        margin-bottom: 14px;
+      }
+      h2 {
+        margin: 0 0 8px;
+        font-size: 11px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+        gap: 8px;
+      }
+      button {
+        padding: 14px 10px;
+        border-radius: 12px;
+        border: 1px solid var(--edge);
+        background: linear-gradient(180deg, var(--panel-2), var(--panel));
+        color: var(--ink);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+      }
+      button:active {
+        transform: translateY(2px);
+      }
+      button.gold {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      button.danger {
+        border-color: var(--danger);
+        color: var(--danger);
+      }
+      button.ok {
+        border-color: var(--ok);
+        color: var(--ok);
+      }
+
+      #toast {
+        position: fixed;
+        left: 50%;
+        bottom: 16px;
+        transform: translateX(-50%);
+        padding: 10px 18px;
+        border-radius: 999px;
+        background: var(--panel-2);
+        border: 1px solid var(--edge);
+        font-size: 13px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+      }
+      #toast.show {
+        opacity: 1;
+      }
+      #toast.bad {
+        border-color: var(--danger);
+        color: var(--danger);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>OPERATOR PANEL</h1>
+    <div class="sub">
+      Break-glass controls. The defuser's screen never shows this page.
+    </div>
+
+    <div class="token-row">
+      <input
+        id="token"
+        placeholder="restart token (from the laptop terminal)"
+        autocomplete="off"
+        spellcheck="false"
+      />
+    </div>
+    <div id="tokenHint" class="token-hint"></div>
+
+    <div class="state" id="state"><span class="chip">connecting…</span></div>
+
+    <section>
+      <h2>Game</h2>
+      <div class="grid">
+        <button class="ok" data-action="start">▶ FORCE START</button>
+        <button id="pauseBtn" class="gold" data-action="pause">⏸ PAUSE</button>
+        <button class="danger" data-action="restart">⟲ RESTART</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Timer</h2>
+      <div class="grid">
+        <button data-action="add_time" data-value="60">+60s</button>
+        <button data-action="add_time" data-value="30">+30s</button>
+        <button data-action="add_time" data-value="-30">−30s</button>
+        <button data-action="set_time" data-value="240">SET 4:00</button>
+        <button data-action="set_time" data-value="60">SET 1:00</button>
+        <button data-action="set_time" data-value="10">SET 0:10</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Strikes</h2>
+      <div class="grid" id="strikeGrid"></div>
+    </section>
+
+    <section>
+      <h2>Modules</h2>
+      <div class="grid">
+        <button class="ok" data-action="solve_module">✓ SOLVE CURRENT</button>
+        <button data-action="jump_module" data-value="0">GO 1</button>
+        <button data-action="jump_module" data-value="1">GO 2</button>
+        <button data-action="jump_module" data-value="2">GO 3</button>
+        <button data-action="jump_module" data-value="3">GO 4</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Sabotage events</h2>
+      <div class="grid">
+        <button id="eventsBtn" class="gold" data-action="events_off">
+          EVENTS: ON
+        </button>
+        <button data-action="clear_event">CLEAR ACTIVE</button>
+        <button data-action="trigger_event" data-value="Jumpscare">
+          Jumpscare
+        </button>
+        <button data-action="trigger_event" data-value="BlueScreen">
+          Blue screen
+        </button>
+        <button data-action="trigger_event" data-value="UpsideDown">
+          Upside down
+        </button>
+        <button data-action="trigger_event" data-value="MirrorMode">
+          Mirror
+        </button>
+        <button data-action="trigger_event" data-value="Dyslexia">
+          Dyslexia
+        </button>
+        <button data-action="trigger_event" data-value="StaticGlitch">
+          Static
+        </button>
+        <button data-action="trigger_event" data-value="SirenLights">
+          Sirens
+        </button>
+        <button data-action="trigger_event" data-value="TurkAttack">
+          Intrusion
+        </button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Force ending</h2>
+      <div class="grid">
+        <button class="ok" data-action="end_defused">END: DEFUSED</button>
+        <button class="danger" data-action="end_exploded">END: BOOM</button>
+      </div>
+    </section>
+
+    <div id="toast"></div>
+
+    <script>
+      // Token sources, in order of preference:
+      //   1. Injected by the relay - only happens when this page is opened
+      //      ON the laptop (loopback), so it's filled in automatically there.
+      //   2. ?token=... in the URL, for opening the panel on a phone.
+      //   3. Whatever this browser remembered from last time.
+      // The placeholder survives unreplaced only if the file is opened
+      // straight off disk rather than served, so it's treated as absent.
+      const INJECTED_TOKEN = "__RESTART_TOKEN__";
+      const injected =
+        INJECTED_TOKEN && !INJECTED_TOKEN.startsWith("__") ? INJECTED_TOKEN : "";
+
+      const tokenInput = document.getElementById("token");
+      const urlToken = new URLSearchParams(location.search).get("token");
+      const activeToken =
+        injected || urlToken || localStorage.getItem("kg_admin_token") || "";
+      tokenInput.value = activeToken;
+
+      tokenInput.addEventListener("change", () =>
+        localStorage.setItem("kg_admin_token", tokenInput.value.trim())
+      );
+      if (activeToken) localStorage.setItem("kg_admin_token", activeToken);
+
+      if (injected) {
+        document.getElementById("tokenHint").textContent =
+          "✓ token filled in automatically (opened on the host laptop)";
+      }
+
+      const toast = document.getElementById("toast");
+      let toastTimer = null;
+      function showToast(message, bad) {
+        toast.textContent = message;
+        toast.classList.toggle("bad", !!bad);
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 1600);
+      }
+
+      async function send(action, value) {
+        const token = tokenInput.value.trim();
+        if (!token) {
+          showToast("Enter the restart token first", true);
+          return;
+        }
+        const params = new URLSearchParams({ token, action });
+        if (value !== undefined && value !== null) params.set("value", value);
+
+        try {
+          const response = await fetch(`/admin/action?${params}`, { method: "POST" });
+          if (response.status === 401) {
+            showToast("Token rejected", true);
+            return;
+          }
+          const body = await response.json();
+          showToast(body.ok ? action.replace(/_/g, " ") : `failed: ${action}`, !body.ok);
+          poll();
+        } catch (error) {
+          showToast("Relay unreachable", true);
+        }
+      }
+
+      document.querySelectorAll("button[data-action]").forEach((button) => {
+        button.addEventListener("click", () =>
+          send(button.dataset.action, button.dataset.value)
+        );
+      });
+
+      function fmt(ms) {
+        const total = Math.max(0, Math.floor(ms / 1000));
+        return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+      }
+
+      const MODULE_TITLES = {
+        Wires: "Alien Wires",
+        Simon: "Simon Says",
+        Memory: "Memory",
+        Hold: "The Button",
+      };
+
+      let strikeGridMax = -1;
+
+      function render(view) {
+        const state = document.getElementById("state");
+        if (!view) {
+          state.innerHTML = '<span class="chip">no game state yet</span>';
+          return;
+        }
+
+        const active =
+          view.active_module_index !== null
+            ? MODULE_TITLES[view.modules[view.active_module_index].kind]
+            : "—";
+
+        state.innerHTML = [
+          `<span class="chip">PHASE <b>${view.phase}</b></span>`,
+          `<span class="chip">TIME <b>${fmt(view.timer_ms)}</b></span>`,
+          `<span class="chip">STRIKES <b>${view.strikes}/${view.max_strikes}</b></span>`,
+          `<span class="chip">MODULE <b>${active}</b></span>`,
+          view.paused ? '<span class="chip is-paused">PAUSED</span>' : "",
+          view.active_event
+            ? `<span class="chip is-alert">EVENT <b>${view.active_event.kind}</b></span>`
+            : "",
+          !view.events_enabled
+            ? '<span class="chip is-paused">EVENTS OFF</span>'
+            : "",
+          `<span class="chip">${view.status_title}</span>`,
+        ].join("");
+
+        const pauseBtn = document.getElementById("pauseBtn");
+        pauseBtn.textContent = view.paused ? "▶ RESUME" : "⏸ PAUSE";
+        pauseBtn.dataset.action = view.paused ? "resume" : "pause";
+
+        const eventsBtn = document.getElementById("eventsBtn");
+        eventsBtn.textContent = view.events_enabled ? "EVENTS: ON" : "EVENTS: OFF";
+        eventsBtn.dataset.action = view.events_enabled ? "events_off" : "events_on";
+
+        // Strike buttons depend on the configured attempt count, so they're
+        // built from the live view rather than hardcoded.
+        if (view.max_strikes !== strikeGridMax) {
+          strikeGridMax = view.max_strikes;
+          const grid = document.getElementById("strikeGrid");
+          grid.innerHTML = "";
+          for (let i = 0; i < view.max_strikes; i++) {
+            const button = document.createElement("button");
+            button.textContent = i === 0 ? "CLEAR (0)" : `SET ${i}`;
+            button.dataset.action = "set_strikes";
+            button.dataset.value = String(i);
+            button.addEventListener("click", () => send("set_strikes", String(i)));
+            grid.appendChild(button);
+          }
+        }
+      }
+
+      async function poll() {
+        try {
+          const response = await fetch(`/state?t=${Date.now()}`, { cache: "no-store" });
+          render(await response.json());
+        } catch (error) {
+          document.getElementById("state").innerHTML =
+            '<span class="chip is-alert">relay unreachable</span>';
+        }
+      }
+
+      poll();
+      setInterval(poll, 500);
+    </script>
+  </body>
+</html>

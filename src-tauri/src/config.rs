@@ -15,6 +15,25 @@ pub fn get() -> &'static GameConfig {
 pub struct GameConfig {
     pub game: GameSettings,
     pub events: EventSettings,
+    pub stimulation: StimulationSettings,
+}
+
+/// What a mistake costs *inside* a staged module (Memory, Simon Says).
+/// The strike and the time penalty always apply - this only decides what
+/// happens to the progress already made in that module.
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MistakeBehavior {
+    /// The failed stage still counts; play continues at the next stage
+    /// (and the module is solved if that was the last one). Nothing is
+    /// ever re-done, so a module can't trap a group in a failure loop.
+    #[default]
+    Advance,
+    /// Keep every earlier stage, but replay the one that was failed.
+    RetryStage,
+    /// Wipe the module's progress and start it over (the strictest,
+    /// original behaviour).
+    RestartModule,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -28,6 +47,7 @@ pub struct GameSettings {
     pub first_mistake_penalty_ms: i64,
     pub hold_threshold_ms: u32,
     pub simon_stages: u8,
+    pub mistake_behavior: MistakeBehavior,
 }
 
 impl Default for GameSettings {
@@ -38,6 +58,7 @@ impl Default for GameSettings {
             first_mistake_penalty_ms: 20_000,
             hold_threshold_ms: 700,
             simon_stages: 5,
+            mistake_behavior: MistakeBehavior::Advance,
         }
     }
 }
@@ -45,7 +66,12 @@ impl Default for GameSettings {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct EventSettings {
+    /// Quiet gap between sabotage events, measured from the moment the
+    /// previous one *ends* (so an event's own duration never eats into it).
     pub interval_ms: u64,
+    /// The gap is randomised by +/- this much, so events don't arrive on a
+    /// predictable metronome. 0 disables the jitter.
+    pub interval_jitter_ms: u64,
     pub duration_ms: EventDurations,
     pub jumpscare: JumpscareSettings,
 }
@@ -53,7 +79,8 @@ pub struct EventSettings {
 impl Default for EventSettings {
     fn default() -> Self {
         EventSettings {
-            interval_ms: 12_000,
+            interval_ms: 45_000,
+            interval_jitter_ms: 15_000,
             duration_ms: EventDurations::default(),
             jumpscare: JumpscareSettings::default(),
         }
@@ -94,6 +121,15 @@ pub struct JumpscareSettings {
     /// Up to 3 file paths to jumpscare video files. One is picked at random
     /// each time the Jumpscare event fires. Empty = fall back to the
     /// built-in CSS monster-face effect.
+    pub video_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
+pub struct StimulationSettings {
+    /// File paths to short gameplay/feed clips for the tablet's
+    /// "stimulation corner" (played muted, on loop, auto-advancing).
+    /// Empty = the corner never appears.
     pub video_paths: Vec<String>,
 }
 
