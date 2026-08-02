@@ -63,7 +63,7 @@ fn connect_with_retry() -> esp_io::EspLink {
 fn run_engine_loop(handle: AppHandle) {
     let mut link = connect_with_retry();
 
-    let mut last_shown_seconds: i32 = -1;
+    let mut last_shown_display: i32 = -1;
     let mut last_display_sent_at: Option<Instant> = None;
     let mut consecutive_failures: u32 = 0;
     let mut received_any_data = false;
@@ -93,16 +93,19 @@ fn run_engine_loop(handle: AppHandle) {
                 if let Some(view) = view {
                     let _ = handle.emit("state:update", &view);
 
-                    let seconds = (view.timer_ms.max(0) / 1000) as i32;
-                    let should_resend = seconds != last_shown_seconds
+                    // M:SS packed into 3 digits (4:00 -> "400"), matching
+                    // the tablet's readout and The Button's digit rule -
+                    // NOT raw total seconds.
+                    let display_value = engine::timer_display_value(view.timer_ms);
+                    let should_resend = display_value as i32 != last_shown_display
                         || last_display_sent_at
                             .map(|at| now.duration_since(at) >= DISPLAY_RESEND_INTERVAL)
                             .unwrap_or(true);
 
                     if should_resend {
-                        last_shown_seconds = seconds;
+                        last_shown_display = display_value as i32;
                         last_display_sent_at = Some(now);
-                        if let Err(error) = link.set_display(seconds.max(0) as u16) {
+                        if let Err(error) = link.set_display(display_value) {
                             eprintln!("Failed to update ESP32 display: {error}");
                         }
                     }

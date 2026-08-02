@@ -3,6 +3,7 @@ use std::time::Instant;
 use serde::Serialize;
 
 use crate::engine::events::SabotageEvent;
+use crate::engine::simon::SimonMode;
 use crate::engine::{wires, GameState, ModuleKind, PendingAction, Phase};
 use crate::esp_io::IoSnapshot;
 
@@ -31,6 +32,11 @@ pub struct DefuserView {
     /// hardcoding numbers that silently go stale whenever config changes.
     pub hold_threshold_ms: u32,
     pub simon_max_stages: u8,
+    /// One-line game feedback ("SECOND CHANCE", "MODULE SOLVED", "SIMON
+    /// SAYS" + what to do...) - the engine has always maintained these;
+    /// both screens render them so mistakes/progress are never silent.
+    pub status_title: String,
+    pub status_detail: String,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq)]
@@ -56,6 +62,13 @@ pub enum ModuleState {
     Simon {
         flash_sequence: Vec<&'static str>,
         input_len: u8,
+        /// "watch" while the engine is playing the sequence back (input is
+        /// ignored), "input" once it's the defuser's turn to repeat it.
+        mode: &'static str,
+        /// The color the engine is flashing right now, if any - the tablet
+        /// lights its pads from this instead of running its own animation,
+        /// so what the defuser sees is exactly what the engine is timing.
+        lit: Option<&'static str>,
         solved: bool,
     },
     Memory {
@@ -171,6 +184,8 @@ pub fn build_view(state: &GameState, io: &IoSnapshot, now: Instant) -> DefuserVi
         active_module_index,
         hold_threshold_ms: crate::config::get().game.hold_threshold_ms,
         simon_max_stages: crate::config::get().game.simon_stages,
+        status_title: state.status_title.clone(),
+        status_detail: state.status_detail.clone(),
     }
 }
 
@@ -199,6 +214,13 @@ fn build_module(state: &GameState, io: &IoSnapshot, kind: ModuleKind, order_inde
             ModuleState::Simon {
                 flash_sequence,
                 input_len: state.simon.input_index,
+                mode: if state.simon.mode == SimonMode::Input {
+                    "input"
+                } else {
+                    "watch"
+                },
+                lit: (state.simon.mode == SimonMode::FlashOn && state.simon.flash_color >= 0)
+                    .then(|| simon_color_str(state.simon.flash_color as u8)),
                 solved,
             }
         }

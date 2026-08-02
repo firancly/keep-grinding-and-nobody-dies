@@ -49,19 +49,13 @@ fn release_digit_for_strip(color: u8) -> u8 {
     }
 }
 
-fn visible_seconds(remaining_ms: i64) -> u32 {
-    if remaining_ms <= 0 {
-        0
-    } else {
-        ((remaining_ms + 999) / 1000) as u32
-    }
-}
-
+/// Checks the release rule against the same M:SS digits both displays
+/// actually show (see `super::timer_display_value`). Note the target digit
+/// must never be 0: the tablet zero-pads minutes ("2:53" renders as
+/// "02:53"), so a 0 is visible on one display but not the other.
 fn timer_contains_digit(remaining_ms: i64, digit: u8) -> bool {
-    let total = visible_seconds(remaining_ms);
-    let minutes = total / 60;
-    let seconds = total % 60;
-    [minutes / 10, minutes % 10, seconds / 10, seconds % 10]
+    let value = super::timer_display_value(remaining_ms);
+    [value / 100, (value / 10) % 10, value % 10]
         .iter()
         .any(|&d| d as u8 == digit)
 }
@@ -135,24 +129,25 @@ pub fn on_edge(state: &mut GameState, edge: &ButtonEdge, now: Instant) {
                 return;
             }
 
-            // A fast poll cadence can miss the exact instant the hold
-            // threshold was crossed if the release also lands in the same
-            // batch of edges - fall back to the held duration itself so a
-            // legitimately long hold is never mistaken for "released early".
-            let strip_was_visible = state.button.strip_visible || held_for >= crate::config::get().game.hold_threshold_ms;
-
-            if !strip_was_visible {
-                register_mistake(
-                    state,
-                    "Released before the strip appeared",
-                    PendingAction::ButtonRetry,
-                    now,
-                );
-                return;
-            }
-
             if !state.button.strip_visible {
-                state.button.strip_color = rand::rng().random_range(0..4);
+                // The poll cadence can miss the exact instant the hold
+                // threshold was crossed if the release lands in the same
+                // batch of edges. If the hold was genuinely long enough,
+                // the player did everything right but never got shown a
+                // strip - judging their release digit against a strip they
+                // couldn't see would be a coin-flip mistake, so count it
+                // as a solve instead.
+                if held_for >= crate::config::get().game.hold_threshold_ms {
+                    solve_current_module(state, now);
+                } else {
+                    register_mistake(
+                        state,
+                        "Released before the strip appeared",
+                        PendingAction::ButtonRetry,
+                        now,
+                    );
+                }
+                return;
             }
 
             let target_digit = release_digit_for_strip(state.button.strip_color);

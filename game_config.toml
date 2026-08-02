@@ -16,6 +16,10 @@
 [game]
 # Bombanin toplam geri sayim suresi (milisaniye). 240000 = 4 dakika.
 # Oyunu kolaylastirmak icin buyut, zorlastirmak icin kucult.
+# NOT: Bombanin fiziksel 3 haneli ekrani sureyi D:SS formatinda gosterir
+# (orn. 4:00 -> "400"). 9:59'dan (599000 ms) uzun sureler ekranda geri
+# sayim 9:59'un altina inene kadar "959" olarak gorunur - tablet dogru
+# sureyi gostermeye devam eder.
 total_time_ms = 240000
 
 # Bomba patlamadan once kac hataya izin verildigi. Son haktan once yapilan

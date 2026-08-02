@@ -21,6 +21,10 @@ export interface DefuserView {
   // instead of hardcoding numbers that go stale when config changes.
   hold_threshold_ms: number;
   simon_max_stages: number;
+  // One-line game feedback ("SECOND CHANCE", "MODULE SOLVED", ...) plus a
+  // detail sentence — rendered on both screens so mistakes are never silent.
+  status_title: string;
+  status_detail: string;
 }
 
 export type ModuleState = WiresModule | SimonModule | MemoryModule | HoldModule;
@@ -47,8 +51,14 @@ export type SimonColor = "red" | "blue" | "green" | "yellow";
 
 export interface SimonModule {
   kind: "Simon";
-  flash_sequence: SimonColor[]; // Rust generates — the UI plays it back
+  flash_sequence: SimonColor[]; // full sequence this stage (for progress pips)
   input_len: number; // how many correct presses so far (progress)
+  // "watch" while the engine plays the sequence back (presses are ignored),
+  // "input" once it's the defuser's turn to repeat it.
+  mode: "watch" | "input";
+  // The color the engine is flashing right now — the tablet lights its pads
+  // from this, so the visible flashes are exactly the engine's timing.
+  lit: SimonColor | null;
   solved: boolean;
 }
 

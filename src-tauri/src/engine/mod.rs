@@ -192,6 +192,20 @@ fn press_occurred(io: &IoSnapshot, button: u8) -> bool {
         .any(|edge| edge.button == button && edge.kind == EdgeKind::Press)
 }
 
+/// The exact number shown on the physical 3-digit countdown display:
+/// minutes and seconds packed as M:SS (e.g. 4:00 -> 400, 2:53 -> 253),
+/// flooring the remaining time just like the tablet's mm:ss readout does.
+/// Times above 9:59 don't fit in three digits and are clamped to 959 until
+/// the countdown drops below ten minutes.
+///
+/// This is the single source of truth for "what digits does the defuser
+/// see" - The Button's release-digit rule reads the same value, so the
+/// rule can never disagree with either display.
+pub fn timer_display_value(remaining_ms: i64) -> u16 {
+    let total_seconds = (remaining_ms.max(0) / 1000).min(599) as u16;
+    (total_seconds / 60) * 100 + total_seconds % 60
+}
+
 pub(crate) fn module_name(kind: ModuleKind) -> &'static str {
     match kind {
         ModuleKind::Memory => "MEMORY",

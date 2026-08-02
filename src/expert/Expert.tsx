@@ -72,6 +72,18 @@ export function Expert() {
           <ExpertHeader view={view} />
           <div className={`center-message result ${view.phase === "Defused" ? "defused" : "exploded"}`}>
             <div className="result-title">{view.phase === "Defused" ? "DEFUSED" : "BOOM"}</div>
+            <div className="result-reason">{view.status_detail}</div>
+            <button
+              type="button"
+              className="restart-btn"
+              onClick={() => {
+                invoke("restart_game").catch((error) =>
+                  console.error("Failed to restart game:", error)
+                );
+              }}
+            >
+              START NEW GAME
+            </button>
           </div>
         </div>
       </div>
@@ -80,10 +92,23 @@ export function Expert() {
 
   const activeModule = view.active_module_index !== null ? view.modules[view.active_module_index] : null;
 
+  // Same feedback line the tablet shows — without it the expert only sees
+  // a strike appear with no hint of what the defuser did wrong.
+  const statusTone =
+    view.status_title === "SECOND CHANCE"
+      ? "is-alert"
+      : view.status_title === "MODULE SOLVED" || view.status_title === "SIMON CORRECT"
+        ? "is-good"
+        : "";
+
   return (
     <div className="defuser expert">
       <div className="casing">
         <ExpertHeader view={view} />
+        <div className={`status-line ${statusTone}`}>
+          <span className="status-title">{view.status_title}</span>
+          <span className="status-detail">{view.status_detail}</span>
+        </div>
         <ModuleStepper modules={view.modules} activeIndex={view.active_module_index} />
         <Manual
           activeKind={activeModule?.kind ?? null}
